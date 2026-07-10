@@ -1,7 +1,9 @@
 import type { GamePrediction } from '@/lib/predictions'
+import type { GameWeather } from '@/lib/weather'
 import predictionsData from '@/data/nfl/predictions.json'
 import ratingsData from '@/data/nfl/ratings.json'
 import metaData from '@/data/nfl/meta.json'
+import weatherData from '@/data/nfl/current-week-weather.json'
 
 export const NFL_META = metaData as {
   source: string
@@ -13,6 +15,20 @@ export const NFL_META = metaData as {
 }
 
 export const ALL_PREDICTIONS = predictionsData as GamePrediction[]
+
+type WeatherFile = {
+  games?: Array<{
+    gameId: string
+    outdoor: boolean
+    weather: GameWeather | null
+  }>
+}
+
+const WEATHER_BY_GAME = new Map(
+  ((weatherData as WeatherFile).games ?? [])
+    .filter((g) => g.outdoor && g.weather)
+    .map((g) => [g.gameId, g.weather as GameWeather]),
+)
 
 export type RatingsBundle = Record<
   string,
@@ -38,11 +54,17 @@ export function listWeeks(season: number): number[] {
 }
 
 export function getPredictions(season: number, week: number): GamePrediction[] {
-  return ALL_PREDICTIONS.filter((p) => p.season === season && p.week === week).sort(
-    (a, b) =>
-      b.starRating.stars - a.starRating.stars ||
-      b.starRating.differentialPct - a.starRating.differentialPct,
-  )
+  return ALL_PREDICTIONS.filter((p) => p.season === season && p.week === week)
+    .map((p) => {
+      const weather = WEATHER_BY_GAME.get(p.gameId)
+      if (!weather) return p
+      return { ...p, weather, weatherAdjustment: p.weatherAdjustment ?? 0 }
+    })
+    .sort(
+      (a, b) =>
+        b.starRating.stars - a.starRating.stars ||
+        b.starRating.differentialPct - a.starRating.differentialPct,
+    )
 }
 
 /** Rating trajectory for a team across a season (week → rating). */

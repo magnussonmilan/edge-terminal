@@ -58,6 +58,10 @@ export interface Trade {
   userAction: UserAction
   /** Set when the user places (or mock history includes) a bet. */
   placement?: TradePlacement
+  /** Best home spread among returned books (live odds feed). */
+  bestLineHome?: { bookmaker: string; point: number; price: number }
+  /** Best away spread among returned books (live odds feed). */
+  bestLineAway?: { bookmaker: string; point: number; price: number }
 }
 
 export interface UserPortfolio {

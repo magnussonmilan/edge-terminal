@@ -10,6 +10,9 @@
     "preview": "vite preview",
     "ingest:nfl": "tsx scripts/ingest-nflverse.ts",
     "ingest:stacks": "tsx scripts/ingest-stack-finder.ts",
+    "ingest:current-week": "tsx scripts/ingest-current-week.ts",
+    "ingest:weather": "tsx scripts/ingest-weather.ts",
+    "ingest:odds": "tsx scripts/ingest-odds.ts",
     "calibrate": "tsx scripts/calibrate-model.ts",
     "test": "vitest run"
   },

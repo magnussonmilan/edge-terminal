@@ -46,6 +46,13 @@ export function TradeCard({ trade }: TradeCardProps) {
           <div className="flex flex-wrap items-center gap-1.5">
             <Badge className={SPORT_COLORS[trade.sport]}>{trade.sport}</Badge>
             <LifecycleBadge trade={trade} />
+            {(trade.bestLineHome || trade.bestLineAway) && (
+              <Badge className="bg-violet-50 text-violet-800 normal-case">
+                {trade.bestLineHome
+                  ? `Best home: ${trade.bestLineHome.bookmaker} ${formatSpreadPoint(trade.bestLineHome.point)}`
+                  : `Best away: ${trade.bestLineAway!.bookmaker} ${formatSpreadPoint(trade.bestLineAway!.point)}`}
+              </Badge>
+            )}
           </div>
           <ChevronDown
             className={cn(
@@ -99,6 +106,11 @@ export function TradeCard({ trade }: TradeCardProps) {
       </div>
     </article>
   )
+}
+
+function formatSpreadPoint(point: number): string {
+  if (point > 0) return `+${point}`
+  return String(point)
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

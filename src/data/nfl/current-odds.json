@@ -1,0 +1,6 @@
+{
+  "generatedAt": "",
+  "note": "Empty until npm run ingest:odds with ODDS_API_KEY. App falls back to mocks when this has no trades.",
+  "snapshots": [],
+  "trades": []
+}

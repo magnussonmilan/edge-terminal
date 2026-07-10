@@ -1,0 +1,5 @@
+{
+  "generatedAt": null,
+  "note": "Written by ingest:odds. Weather ingest reads this; absent/empty → skip or dry-run.",
+  "games": []
+}

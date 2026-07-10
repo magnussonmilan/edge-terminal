@@ -1,21 +1,59 @@
 import type { Trade, TradeFilters } from '@/types/trade'
 import { MOCK_TRADES } from '@/mocks/trades'
+import {
+  fetchNflOdds,
+  isOddsApiConfigured,
+  oddsSnapshotsToTrades,
+} from '@/lib/oddsFeed'
+import currentOddsJson from '@/data/nfl/current-odds.json'
+
+type CurrentOddsFile = {
+  generatedAt?: string
+  snapshots?: unknown[]
+  trades?: Trade[]
+}
+
+const CURRENT_ODDS = currentOddsJson as unknown as CurrentOddsFile
 
 /**
  * Data access layer for trades.
- * Phase 1: reads from mocks. Swap the body of these functions for a real API later —
- * components should only call this module, never import mocks directly.
+ * - ODDS_API_KEY / VITE_ODDS_API_KEY set → live The Odds API (fails loudly on error)
+ * - else if ingest wrote current-odds.json with trades → use that
+ * - else mocks (local demo without a key)
  */
 export async function fetchTrades(): Promise<Trade[]> {
-  // Simulate network latency for skeleton states
+  if (isOddsApiConfigured()) {
+    const snapshots = await fetchNflOdds()
+    if (!snapshots.length) {
+      throw new Error('The Odds API returned zero NFL events — refusing empty live feed')
+    }
+    return oddsSnapshotsToTrades(snapshots).map(cloneTrade)
+  }
+
+  if (CURRENT_ODDS.trades && CURRENT_ODDS.trades.length > 0) {
+    await delay(200)
+    return CURRENT_ODDS.trades.map((t) =>
+      cloneTrade({
+        ...t,
+        createdAt: new Date(t.createdAt),
+        expiresAt: new Date(t.expiresAt),
+        books: Object.fromEntries(
+          Object.entries(t.books).map(([name, book]) => [
+            name,
+            { ...book, lastUpdated: new Date(book.lastUpdated) },
+          ]),
+        ),
+      }),
+    )
+  }
+
   await delay(450)
   return MOCK_TRADES.map(cloneTrade)
 }
 
 export async function fetchTradeById(id: string): Promise<Trade | null> {
-  await delay(200)
-  const trade = MOCK_TRADES.find((t) => t.id === id)
-  return trade ? cloneTrade(trade) : null
+  const trades = await fetchTrades()
+  return trades.find((t) => t.id === id) ?? null
 }
 
 export function filterTrades(trades: Trade[], filters: TradeFilters): Trade[] {
@@ -54,6 +92,8 @@ function cloneTrade(trade: Trade): Trade {
           placedAt: new Date(trade.placement.placedAt),
         }
       : undefined,
+    bestLineHome: trade.bestLineHome ? { ...trade.bestLineHome } : undefined,
+    bestLineAway: trade.bestLineAway ? { ...trade.bestLineAway } : undefined,
   }
 }
 

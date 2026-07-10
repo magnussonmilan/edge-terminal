@@ -9,6 +9,7 @@
 import { HOME_FIELD_ADVANTAGE, resolveHfa, type HfaConfig } from './powerRatings'
 import { calculateStarRating, type StarRating } from './keyNumbers'
 import type { GameResult } from './powerRatings'
+import type { GameWeather } from './weather'
 
 const REST_POINT_PER_DAY = 0.15
 const REST_CAP = 1.0
@@ -27,6 +28,13 @@ export interface GamePrediction {
   postedSpreadIsHistorical: boolean
   restAdjustment: number
   primetimeAdjustment: number
+  /**
+   * Descriptive only until a separate calibration pass decides to fit a coeff.
+   * Not included in modelSpread.
+   */
+  weatherAdjustment?: number
+  /** Present for outdoor current-week cards; omitted/null for domes & historical. */
+  weather?: GameWeather | null
   starRating: StarRating
   homeScore: number | null
   awayScore: number | null
@@ -125,6 +133,8 @@ export function buildGamePrediction(
     postedSpreadIsHistorical,
     restAdjustment,
     primetimeAdjustment,
+    weatherAdjustment: 0,
+    weather: null,
     starRating,
     homeScore: game.homeScore,
     awayScore: game.awayScore,

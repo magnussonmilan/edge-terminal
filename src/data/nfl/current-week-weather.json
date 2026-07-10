@@ -1,0 +1,213 @@
+{
+  "generatedAt": "2026-07-10T22:00:47.510Z",
+  "dryRun": true,
+  "season": 2025,
+  "week": 17,
+  "games": [
+    {
+      "gameId": "2025_17_DAL_WAS",
+      "homeTeam": "WAS",
+      "awayTeam": "DAL",
+      "gameTime": "2025-12-25T13:00:00Z",
+      "outdoor": true,
+      "weather": {
+        "tempF": 85,
+        "windMph": 7,
+        "windDirection": "W",
+        "precipitationChance": 15,
+        "shortForecast": "Isolated Showers And Thunderstorms",
+        "fetchedAt": "2026-07-10T22:00:35.957Z"
+      }
+    },
+    {
+      "gameId": "2025_17_DET_MIN",
+      "homeTeam": "MIN",
+      "awayTeam": "DET",
+      "gameTime": "2025-12-25T16:30:00Z",
+      "outdoor": false,
+      "weather": null
+    },
+    {
+      "gameId": "2025_17_DEN_KC",
+      "homeTeam": "KC",
+      "awayTeam": "DEN",
+      "gameTime": "2025-12-25T20:15:00Z",
+      "outdoor": true,
+      "weather": {
+        "tempF": 86,
+        "windMph": 5,
+        "windDirection": "N",
+        "precipitationChance": 45,
+        "shortForecast": "Chance Showers And Thunderstorms",
+        "fetchedAt": "2026-07-10T22:00:36.473Z"
+      }
+    },
+    {
+      "gameId": "2025_17_SEA_CAR",
+      "homeTeam": "CAR",
+      "awayTeam": "SEA",
+      "gameTime": "2025-12-28T13:00:00Z",
+      "outdoor": true,
+      "weather": {
+        "tempF": 87,
+        "windMph": 10,
+        "windDirection": "W",
+        "precipitationChance": 45,
+        "shortForecast": "Chance Showers And Thunderstorms",
+        "fetchedAt": "2026-07-10T22:00:37.572Z"
+      }
+    },
+    {
+      "gameId": "2025_17_ARI_CIN",
+      "homeTeam": "CIN",
+      "awayTeam": "ARI",
+      "gameTime": "2025-12-28T13:00:00Z",
+      "outdoor": true,
+      "weather": {
+        "tempF": 85,
+        "windMph": 6,
+        "windDirection": "W",
+        "precipitationChance": 31,
+        "shortForecast": "Chance Showers And Thunderstorms",
+        "fetchedAt": "2026-07-10T22:00:38.773Z"
+      }
+    },
+    {
+      "gameId": "2025_17_PIT_CLE",
+      "homeTeam": "CLE",
+      "awayTeam": "PIT",
+      "gameTime": "2025-12-28T13:00:00Z",
+      "outdoor": true,
+      "weather": {
+        "tempF": 82,
+        "windMph": 6,
+        "windDirection": "N",
+        "precipitationChance": 23,
+        "shortForecast": "Slight Chance Showers And Thunderstorms",
+        "fetchedAt": "2026-07-10T22:00:40.572Z"
+      }
+    },
+    {
+      "gameId": "2025_17_BAL_GB",
+      "homeTeam": "GB",
+      "awayTeam": "BAL",
+      "gameTime": "2025-12-27T20:00:00Z",
+      "outdoor": true,
+      "weather": {
+        "tempF": 84,
+        "windMph": 5,
+        "windDirection": "ENE",
+        "precipitationChance": 2,
+        "shortForecast": "Mostly Sunny",
+        "fetchedAt": "2026-07-10T22:00:41.390Z"
+      }
+    },
+    {
+      "gameId": "2025_17_JAX_IND",
+      "homeTeam": "IND",
+      "awayTeam": "JAX",
+      "gameTime": "2025-12-28T13:00:00Z",
+      "outdoor": false,
+      "weather": null
+    },
+    {
+      "gameId": "2025_17_HOU_LAC",
+      "homeTeam": "LAC",
+      "awayTeam": "HOU",
+      "gameTime": "2025-12-27T16:30:00Z",
+      "outdoor": false,
+      "weather": null
+    },
+    {
+      "gameId": "2025_17_NYG_LV",
+      "homeTeam": "LV",
+      "awayTeam": "NYG",
+      "gameTime": "2025-12-28T16:05:00Z",
+      "outdoor": false,
+      "weather": null
+    },
+    {
+      "gameId": "2025_17_TB_MIA",
+      "homeTeam": "MIA",
+      "awayTeam": "TB",
+      "gameTime": "2025-12-28T13:00:00Z",
+      "outdoor": true,
+      "weather": {
+        "tempF": 88,
+        "windMph": 10,
+        "windDirection": "E",
+        "precipitationChance": 26,
+        "shortForecast": "Chance Showers And Thunderstorms",
+        "fetchedAt": "2026-07-10T22:00:42.929Z"
+      }
+    },
+    {
+      "gameId": "2025_17_NE_NYJ",
+      "homeTeam": "NYJ",
+      "awayTeam": "NE",
+      "gameTime": "2025-12-28T13:00:00Z",
+      "outdoor": true,
+      "weather": {
+        "tempF": 87,
+        "windMph": 10,
+        "windDirection": "W",
+        "precipitationChance": 37,
+        "shortForecast": "Chance Showers And Thunderstorms",
+        "fetchedAt": "2026-07-10T22:00:44.154Z"
+      }
+    },
+    {
+      "gameId": "2025_17_NO_TEN",
+      "homeTeam": "TEN",
+      "awayTeam": "NO",
+      "gameTime": "2025-12-28T13:00:00Z",
+      "outdoor": true,
+      "weather": {
+        "tempF": 86,
+        "windMph": 10,
+        "windDirection": "WSW",
+        "precipitationChance": 17,
+        "shortForecast": "Slight Chance Showers And Thunderstorms",
+        "fetchedAt": "2026-07-10T22:00:45.076Z"
+      }
+    },
+    {
+      "gameId": "2025_17_PHI_BUF",
+      "homeTeam": "BUF",
+      "awayTeam": "PHI",
+      "gameTime": "2025-12-28T16:25:00Z",
+      "outdoor": true,
+      "weather": {
+        "tempF": 81,
+        "windMph": 6,
+        "windDirection": "NE",
+        "precipitationChance": 8,
+        "shortForecast": "Mostly Clear",
+        "fetchedAt": "2026-07-10T22:00:46.259Z"
+      }
+    },
+    {
+      "gameId": "2025_17_CHI_SF",
+      "homeTeam": "SF",
+      "awayTeam": "CHI",
+      "gameTime": "2025-12-28T20:20:00Z",
+      "outdoor": true,
+      "weather": {
+        "tempF": 76,
+        "windMph": 13,
+        "windDirection": "NNW",
+        "precipitationChance": 0,
+        "shortForecast": "Sunny",
+        "fetchedAt": "2026-07-10T22:00:47.509Z"
+      }
+    },
+    {
+      "gameId": "2025_17_LA_ATL",
+      "homeTeam": "ATL",
+      "awayTeam": "LA",
+      "gameTime": "2025-12-29T20:15:00Z",
+      "outdoor": false,
+      "weather": null
+    }
+  ]
+}

@@ -57,3 +57,29 @@ Without Supabase env vars, demo auth accepts any email + password (6+ chars) and
 - `/backtest` — ATS win rate by star level, Brier, ROI-if-followed (−110)
 - `/how-it-works` — plain-language mechanism walkthrough
 - `npm test` — key-number star-rating regression tests
+- `npm run calibrate` — joint ridge + rolling-origin CV over 2016–2024
+
+## Live data pipeline (injuries → weather → odds)
+
+Static JSON under `src/data/nfl/` is refreshed by scripts (no Postgres/Redis/Airflow).
+
+| Script | Purpose |
+|--------|---------|
+| `npm run ingest:current-week` | nflverse injuries for current season (or `--dry-run-season=2025 --dry-run-week=17`) |
+| `npm run ingest:odds` | The Odds API spreads → `current-odds.json` + `current-week-schedule.json` (needs `ODDS_API_KEY`) |
+| `npm run ingest:weather` | NOAA `api.weather.gov` for outdoor homes (needs schedule JSON, or dry-run flags) |
+
+**Season helper:** `getCurrentNflSeason()` — Sept starts a new season year; Jan/Feb stay on the prior year.
+
+**Odds:** Without `ODDS_API_KEY`, `/` keeps mock trades. With the key (or ingested `current-odds.json`), the feed shows live NFL spreads and a best-line badge. Do not commit API keys — use `.env` / GitHub Actions secrets.
+
+**Weather:** Domed/retractable stadiums skip NOAA and show no weather UI. `weatherAdjustment` is display-only (not in `modelSpread`) until a separate calibration pass.
+
+### GitHub Actions — `.github/workflows/weekly-ingest.yml`
+
+- **Cron:** Tue–Fri 14:00 UTC
+- **Guard:** job exits early outside Sept–Feb (no twice-yearly cron edits)
+- **Steps:** `ingest:current-week` → `ingest:odds` (if `ODDS_API_KEY` secret set) → `ingest:weather` → auto-commit JSON
+- **Manual test:** Actions → *Weekly live ingest* → *Run workflow* (`workflow_dispatch`). Off-season, injuries should log `No injury data yet for {season}` and exit 0.
+
+Store `ODDS_API_KEY` as a repository secret (Settings → Secrets and variables → Actions).

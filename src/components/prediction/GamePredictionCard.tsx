@@ -4,6 +4,7 @@ import type { GamePrediction } from '@/lib/predictions'
 import { formatStars } from '@/lib/keyNumbers'
 import { Badge } from '@/components/ui/badge'
 import { RatingTrajectoryChart } from '@/components/prediction/RatingTrajectoryChart'
+import { isOutdoorStadium } from '@/lib/stadiums'
 import { cn } from '@/lib/utils'
 
 interface GamePredictionCardProps {
@@ -14,6 +15,9 @@ export function GamePredictionCard({ prediction }: GamePredictionCardProps) {
   const [expanded, setExpanded] = useState(false)
   const { starRating } = prediction
   const playable = starRating.playable
+  const outdoor = isOutdoorStadium(prediction.homeTeam)
+  const weather = prediction.weather
+  const weatherAdj = prediction.weatherAdjustment ?? 0
 
   return (
     <article
@@ -51,6 +55,14 @@ export function GamePredictionCard({ prediction }: GamePredictionCardProps) {
                 Below threshold
               </Badge>
             )}
+            {outdoor && weather && (
+              <Badge className="bg-sky-50 text-sky-800 normal-case">
+                {weather.tempF != null ? `${Math.round(weather.tempF)}°F` : 'Weather'}
+                {weather.windMph != null
+                  ? ` · ${Math.round(weather.windMph)} mph`
+                  : ''}
+              </Badge>
+            )}
           </div>
           <ChevronDown
             className={cn(
@@ -68,14 +80,8 @@ export function GamePredictionCard({ prediction }: GamePredictionCardProps) {
         </h3>
 
         <div className="mt-3 flex flex-wrap items-end gap-4">
-          <Metric
-            label="Home rating"
-            value={prediction.homeRating.toFixed(1)}
-          />
-          <Metric
-            label="Away rating"
-            value={prediction.awayRating.toFixed(1)}
-          />
+          <Metric label="Home rating" value={prediction.homeRating.toFixed(1)} />
+          <Metric label="Away rating" value={prediction.awayRating.toFixed(1)} />
           <div>
             <p className="text-xs text-slate-500">
               {prediction.postedSpreadIsHistorical ? 'Closing line' : 'Posted line'}
@@ -113,8 +119,37 @@ export function GamePredictionCard({ prediction }: GamePredictionCardProps) {
                 {prediction.primetimeAdjustment >= 0 ? '+' : ''}
                 {prediction.primetimeAdjustment.toFixed(2)}
               </span>
-              ). Not the full weather/travel/divisional table set.
+              ). Weather adjustment is display-only (
+              <span className="tabular-nums">
+                {weatherAdj >= 0 ? '+' : ''}
+                {weatherAdj.toFixed(2)}
+              </span>
+              ) — not in modelSpread until calibrated.
             </div>
+
+            {outdoor && weather && (
+              <div className="rounded-md border border-sky-100 bg-sky-50 px-3 py-2 text-xs text-sky-950">
+                <p className="font-medium text-sky-900">Game-time weather (NOAA)</p>
+                <p className="mt-1">
+                  {weather.shortForecast}
+                  {weather.tempF != null ? ` · ${Math.round(weather.tempF)}°F` : ''}
+                  {weather.windMph != null
+                    ? ` · wind ${Math.round(weather.windMph)} mph${
+                        weather.windDirection ? ` ${weather.windDirection}` : ''
+                      }`
+                    : ''}
+                  {weather.precipitationChance != null
+                    ? ` · precip ${weather.precipitationChance}%`
+                    : ''}
+                </p>
+              </div>
+            )}
+
+            {!outdoor && (
+              <p className="text-xs text-slate-400">
+                Domed / closed-roof stadium — no weather adjustment.
+              </p>
+            )}
 
             <div>
               <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
@@ -131,8 +166,8 @@ export function GamePredictionCard({ prediction }: GamePredictionCardProps) {
               <p className="text-xs text-slate-400">
                 Final:{' '}
                 <span className="tabular-nums text-slate-600">
-                  {prediction.awayTeam} {prediction.awayScore} – {prediction.homeTeam}{' '}
-                  {prediction.homeScore}
+                  {prediction.awayTeam} {prediction.awayScore} –{' '}
+                  {prediction.homeTeam} {prediction.homeScore}
                 </span>
               </p>
             )}
@@ -144,10 +179,9 @@ export function GamePredictionCard({ prediction }: GamePredictionCardProps) {
 }
 
 function formatHomeSpread(spread: number): string {
-  // Home perspective: positive = home favored
   if (spread > 0) return `Home -${spread.toFixed(1)}`
   if (spread < 0) return `Home +${Math.abs(spread).toFixed(1)}`
-  return 'Pick\'em'
+  return "Pick'em"
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
