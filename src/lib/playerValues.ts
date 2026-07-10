@@ -85,17 +85,52 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n))
 }
 
+/** Calibratable skill-player formula coefficients (defaults = original hand-picked). */
+export interface PlayerValueCoeffs {
+  qbYpaMult: number
+  qbIntMult: number
+  qbEpaMult: number
+  wrPprMult: number
+  wrShareMult: number
+  rbYpgDiv: number
+  rbTdMult: number
+}
+
+export const DEFAULT_PLAYER_COEFFS: PlayerValueCoeffs = {
+  qbYpaMult: 0.35,
+  qbIntMult: 20,
+  qbEpaMult: 1.5,
+  wrPprMult: 0.12,
+  wrShareMult: 2,
+  rbYpgDiv: 40,
+  rbTdMult: 0.4,
+}
+
+let activeCoeffs: PlayerValueCoeffs = { ...DEFAULT_PLAYER_COEFFS }
+
+export function setPlayerValueCoeffs(coeffs: Partial<PlayerValueCoeffs>): void {
+  activeCoeffs = { ...activeCoeffs, ...coeffs }
+}
+
+export function getPlayerValueCoeffs(): PlayerValueCoeffs {
+  return { ...activeCoeffs }
+}
+
+export function resetPlayerValueCoeffs(): void {
+  activeCoeffs = { ...DEFAULT_PLAYER_COEFFS }
+}
+
 /** QB: base 7.5, adjusted by efficiency proxies, clamped [6.0, 9.5]. */
 export function valueQB(stats: QBSeasonStats): PlayerValue {
+  const c = activeCoeffs
   const att = Math.max(1, stats.attempts)
   const ypa = stats.passingYards / att
   const intRate = stats.interceptions / att
   const epaPerPlay = stats.attempts > 0 ? stats.passingEpa / att : 0
 
-  // Normalize roughly around league-average-ish anchors
-  const ypaAdj = (ypa - 7.0) * 0.35
-  const intAdj = -(intRate - 0.025) * 20
-  const epaAdj = epaPerPlay * 1.5
+  const ypaAdj = (ypa - 7.0) * c.qbYpaMult
+  const intAdj = -(intRate - 0.025) * c.qbIntMult
+  const epaAdj = epaPerPlay * c.qbEpaMult
 
   const baseValue = clamp(7.5 + ypaAdj + intAdj + epaAdj, 6.0, 9.5)
   return {
@@ -110,11 +145,12 @@ export function valueQB(stats: QBSeasonStats): PlayerValue {
 
 /** WR/TE: PPR-style production / game + target share, clamped [0, 3]. */
 export function valueReceiver(stats: ReceivingSeasonStats): PlayerValue {
+  const c = activeCoeffs
   const g = Math.max(1, stats.games)
   const pprPerGame =
     (stats.receptions + stats.receivingYards / 10 + stats.receivingTds * 6) / g
-  const shareAdj = (stats.targetShare || 0) * 2
-  const baseValue = clamp(pprPerGame * 0.12 + shareAdj, 0, 3.0)
+  const shareAdj = (stats.targetShare || 0) * c.wrShareMult
+  const baseValue = clamp(pprPerGame * c.wrPprMult + shareAdj, 0, 3.0)
   return {
     playerId: stats.playerId,
     playerName: stats.playerName,
@@ -127,10 +163,11 @@ export function valueReceiver(stats: ReceivingSeasonStats): PlayerValue {
 
 /** RB: yards + TD production, clamped [0, 2.5]. */
 export function valueRB(stats: RushingSeasonStats): PlayerValue {
+  const c = activeCoeffs
   const g = Math.max(1, stats.games)
   const ypg = stats.rushingYards / g
   const tdpg = stats.rushingTds / g
-  const baseValue = clamp(ypg / 40 + tdpg * 0.4, 0, 2.5)
+  const baseValue = clamp(ypg / c.rbYpgDiv + tdpg * c.rbTdMult, 0, 2.5)
   return {
     playerId: stats.playerId,
     playerName: stats.playerName,
@@ -187,9 +224,47 @@ export function valueDefender(stats: DefensiveStats): PlayerValue {
 
 const OUT_STATUSES = new Set(['out', 'doubtful'])
 
+const OL_POSITIONS = new Set(['OL', 'OT', 'OG', 'C', 'T', 'G', 'LS'])
+const DB_POSITIONS = new Set(['DB', 'CB', 'S', 'FS', 'SS', 'NB'])
+const LB_POSITIONS = new Set(['LB', 'ILB', 'OLB', 'MLB'])
+const DL_POSITIONS = new Set(['DL', 'DE', 'DT', 'NT'])
+
+function mapDefPosition(pos: string): 'DL' | 'LB' | 'DB' | null {
+  if (DL_POSITIONS.has(pos)) return 'DL'
+  if (LB_POSITIONS.has(pos)) return 'LB'
+  if (DB_POSITIONS.has(pos)) return 'DB'
+  return null
+}
+
+function normalizePosGroup(pos: string): SkillPosition | null {
+  const p = pos.toUpperCase()
+  if (p === 'QB') return 'QB'
+  if (p === 'WR' || p === 'TE') return p as 'WR' | 'TE'
+  if (p === 'RB' || p === 'FB') return 'RB'
+  if (OL_POSITIONS.has(p)) return 'OL'
+  const def = mapDefPosition(p)
+  return def
+}
+
+/** Median of the bottom half of league values at a position (= replacement tier). */
+export function positionReplacementValue(
+  position: SkillPosition,
+  playerValues: PlayerValue[],
+  season: number,
+): number {
+  const vals = playerValues
+    .filter((p) => p.position === position && (p.season === season || p.season === 0))
+    .map((p) => p.baseValue)
+    .sort((a, b) => a - b)
+  if (vals.length === 0) return 0
+  const bottom = vals.slice(0, Math.max(1, Math.ceil(vals.length / 2)))
+  return bottom[Math.floor(bottom.length / 2)] ?? 0
+}
+
 /**
- * Value lost to out/doubtful players that week (flat sum — no compounding).
- * Replacement add-back omitted when replacement not in the value map.
+ * Net injury cost = starter value lost − replacement value added back.
+ * Replacement: best remaining healthy teammate at that position, else
+ * league position-average replacement (never assume zero).
  */
 export function computeInjuryDifferential(
   team: string,
@@ -197,7 +272,9 @@ export function computeInjuryDifferential(
   season: number,
   playerValues: PlayerValue[],
   injuryReports: HistoricalInjuryReport[],
+  options: { useReplacementAddBack?: boolean } = { useReplacementAddBack: true },
 ): number {
+  const useReplacement = options.useReplacementAddBack !== false
   const teamValues = playerValues.filter(
     (p) => p.team === team && (p.season === season || p.season === 0),
   )
@@ -211,24 +288,37 @@ export function computeInjuryDifferential(
       OUT_STATUSES.has(r.reportStatus.toLowerCase()),
   )
 
-  let lost = 0
+  const injuredIds = new Set(reports.map((r) => r.playerId))
+
+  let netLost = 0
   for (const report of reports) {
     const pv = byId.get(report.playerId)
-    if (pv) lost += pv.baseValue
+    if (!pv) continue
+
+    let addBack = 0
+    if (useReplacement) {
+      const pos =
+        normalizePosGroup(report.position) ??
+        normalizePosGroup(pv.position) ??
+        pv.position
+      const healthySamePos = teamValues
+        .filter(
+          (p) =>
+            p.position === pos &&
+            !injuredIds.has(p.playerId) &&
+            p.playerId !== report.playerId,
+        )
+        .sort((a, b) => b.baseValue - a.baseValue)
+      if (healthySamePos[0]) {
+        addBack = healthySamePos[0].baseValue
+      } else {
+        addBack = positionReplacementValue(pos, playerValues, season)
+      }
+    }
+
+    netLost += Math.max(0, pv.baseValue - addBack)
   }
-  return lost
-}
-
-const OL_POSITIONS = new Set(['OL', 'OT', 'OG', 'C', 'T', 'G', 'LS'])
-const DB_POSITIONS = new Set(['DB', 'CB', 'S', 'FS', 'SS', 'NB'])
-const LB_POSITIONS = new Set(['LB', 'ILB', 'OLB', 'MLB'])
-const DL_POSITIONS = new Set(['DL', 'DE', 'DT', 'NT'])
-
-function mapDefPosition(pos: string): 'DL' | 'LB' | 'DB' | null {
-  if (DL_POSITIONS.has(pos)) return 'DL'
-  if (LB_POSITIONS.has(pos)) return 'LB'
-  if (DB_POSITIONS.has(pos)) return 'DB'
-  return null
+  return netLost
 }
 
 export function buildPlayerValuesFromSeasonRows(

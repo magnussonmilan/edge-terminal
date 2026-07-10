@@ -1,13 +1,7 @@
 /**
  * Score-based weekly power ratings with optional injury differential.
  *
- * Simplified subset of a full handicapping system:
- * - Score differential + opponent rating + home-field adjustment
- * - Formula-driven injury differential (see playerValues.ts)
- * - Rest / primetime applied at prediction time (predictions.ts), not here
- *
- * v2 (not implemented): compounding/exponential stack-injury logic when
- * multiple players at the same position are out in the same week.
+ * HFA is configurable (season map or scalar) — calibrated via scripts/calibrate-model.ts.
  */
 
 export const HOME_FIELD_ADVANTAGE = 2.0
@@ -29,7 +23,6 @@ export interface GameResult {
   homeScore: number
   awayScore: number
   week: number
-  /** Home-team perspective: positive = home favored. Null if unavailable. */
   spreadLine: number | null
   homeRest: number | null
   awayRest: number | null
@@ -38,39 +31,42 @@ export interface GameResult {
 }
 
 export interface InjuryDiffLookup {
-  /** Key: `${season}-${week}-${team}` → injury differential contribution for TGPL. */
   (season: number, week: number, team: string): number
+}
+
+export type HfaConfig = number | Record<number, number>
+
+export function resolveHfa(hfa: HfaConfig, season: number): number {
+  if (typeof hfa === 'number') return hfa
+  return hfa[season] ?? HOME_FIELD_ADVANTAGE
 }
 
 /**
  * True Game Performance Level from this team's perspective.
- * injuryDifferential: ownValueLost - opponentValueLost (see playerValues).
+ * injuryDifferential: ownNetInjuryCost - opponentNetInjuryCost.
  */
 export function trueGamePerformanceLevel(
   netScore: number,
   opponentRating: number,
   isHome: boolean,
   injuryDifferential = 0,
+  hfa = HOME_FIELD_ADVANTAGE,
 ): number {
-  const hfa = isHome ? -HOME_FIELD_ADVANTAGE : HOME_FIELD_ADVANTAGE
-  return netScore + opponentRating + hfa + injuryDifferential
+  const adj = isHome ? -hfa : hfa
+  return netScore + opponentRating + adj + injuryDifferential
 }
 
 export function updateRating(oldRating: number, tgpl: number): number {
   return CARRY_FORWARD_WEIGHT * oldRating + PERFORMANCE_WEIGHT * tgpl
 }
 
-/**
- * Process a season's games in chronological order, updating both teams after each game.
- * Seeds from `initial` (prior season finals or zeros).
- */
 export function processSeasonRatings(
   games: GameResult[],
   initial: Record<string, number>,
   injuryDiff: InjuryDiffLookup = () => 0,
+  hfa: HfaConfig = HOME_FIELD_ADVANTAGE,
 ): {
   final: Record<string, TeamRating>
-  /** After each week: team → rating */
   byWeek: Record<number, Record<string, number>>
 } {
   const ratings: Record<string, number> = { ...initial }
@@ -85,6 +81,7 @@ export function processSeasonRatings(
   for (const game of sorted) {
     if (game.homeScore == null || game.awayScore == null) continue
 
+    const seasonHfa = resolveHfa(hfa, game.season)
     const homeNet = game.homeScore - game.awayScore
     const awayNet = -homeNet
 
@@ -94,7 +91,6 @@ export function processSeasonRatings(
     const homeInj = injuryDiff(game.season, game.week, game.homeTeam)
     const awayInj = injuryDiff(game.season, game.week, game.awayTeam)
 
-    // own lost − opponent lost
     const homeInjTerm = homeInj - awayInj
     const awayInjTerm = awayInj - homeInj
 
@@ -103,12 +99,14 @@ export function processSeasonRatings(
       awayRating,
       true,
       homeInjTerm,
+      seasonHfa,
     )
     const awayTgpl = trueGamePerformanceLevel(
       awayNet,
       homeRating,
       false,
       awayInjTerm,
+      seasonHfa,
     )
 
     ratings[game.homeTeam] = updateRating(homeRating, homeTgpl)
@@ -137,7 +135,6 @@ export function processSeasonRatings(
   return { final, byWeek }
 }
 
-/** Carry prior-season finals forward as next season's week-0 seeds (decay optional). */
 export function seedFromPriorSeason(
   priorFinal: Record<string, TeamRating>,
   decay = 0.5,

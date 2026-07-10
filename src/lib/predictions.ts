@@ -6,15 +6,12 @@
  * This is a transparent mechanism demo — not a claim of market-beating edge.
  */
 
-import { HOME_FIELD_ADVANTAGE } from './powerRatings'
+import { HOME_FIELD_ADVANTAGE, resolveHfa, type HfaConfig } from './powerRatings'
 import { calculateStarRating, type StarRating } from './keyNumbers'
 import type { GameResult } from './powerRatings'
 
-/** Rest-day advantage → points toward the better-rested team (home perspective). */
 const REST_POINT_PER_DAY = 0.15
 const REST_CAP = 1.0
-
-/** Primetime (Thu/Mon/Sun night) slight home variance — simplified subset. */
 const PRIMETIME_HOME_ADJ = 0.25
 
 export interface GamePrediction {
@@ -25,11 +22,8 @@ export interface GamePrediction {
   awayTeam: string
   homeRating: number
   awayRating: number
-  /** Home perspective: positive = model favors home. */
   modelSpread: number
-  /** Home perspective closing/posted line; null if not in source data. */
   postedSpread: number | null
-  /** True when postedSpread is a real historical line from nflverse. */
   postedSpreadIsHistorical: boolean
   restAdjustment: number
   primetimeAdjustment: number
@@ -59,14 +53,14 @@ export function restAdjustmentHome(
   return Math.max(-REST_CAP, Math.min(REST_CAP, raw))
 }
 
-/**
- * Predicted home spread = (homeRating - awayRating) + HFA + rest + primetime.
- * Factors labeled as simplified subset in UI.
- */
 export function predictGameSpread(
   homeRating: number,
   awayRating: number,
-  game: Pick<GameResult, 'homeRest' | 'awayRest' | 'weekday' | 'gametime'>,
+  game: Pick<
+    GameResult,
+    'homeRest' | 'awayRest' | 'weekday' | 'gametime' | 'season'
+  >,
+  hfa: HfaConfig = HOME_FIELD_ADVANTAGE,
 ): {
   modelSpread: number
   restAdjustment: number
@@ -74,8 +68,8 @@ export function predictGameSpread(
 } {
   const restAdj = restAdjustmentHome(game.homeRest, game.awayRest)
   const ptAdj = isPrimetime(game.weekday, game.gametime) ? PRIMETIME_HOME_ADJ : 0
-  const modelSpread =
-    homeRating - awayRating + HOME_FIELD_ADVANTAGE + restAdj + ptAdj
+  const seasonHfa = resolveHfa(hfa, game.season ?? 0)
+  const modelSpread = homeRating - awayRating + seasonHfa + restAdj + ptAdj
   return {
     modelSpread,
     restAdjustment: restAdj,
@@ -101,11 +95,13 @@ export function buildGamePrediction(
   game: GameResult,
   homeRating: number,
   awayRating: number,
+  hfa: HfaConfig = HOME_FIELD_ADVANTAGE,
 ): GamePrediction {
   const { modelSpread, restAdjustment, primetimeAdjustment } = predictGameSpread(
     homeRating,
     awayRating,
     game,
+    hfa,
   )
 
   const postedSpread = game.spreadLine
@@ -137,7 +133,6 @@ export function buildGamePrediction(
   return { ...base, blurb: buildBlurb(base) }
 }
 
-/** Pre-game ratings = prior week's snapshot (or season seed for week 1). */
 export function ratingBeforeWeek(
   byWeek: Record<number, Record<string, number>>,
   week: number,
@@ -147,7 +142,6 @@ export function ratingBeforeWeek(
   if (week <= 1) return seasonSeed[team] ?? 0
   const prev = byWeek[week - 1]
   if (prev && team in prev) return prev[team]
-  // Fall back to latest earlier week
   for (let w = week - 1; w >= 1; w--) {
     if (byWeek[w] && team in byWeek[w]) return byWeek[w][team]
   }

@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "ingest:nfl": "tsx scripts/ingest-nflverse.ts",
     "ingest:stacks": "tsx scripts/ingest-stack-finder.ts",
+    "calibrate": "tsx scripts/calibrate-model.ts",
     "test": "vitest run"
   },
   "dependencies": {

@@ -5,20 +5,23 @@
  *
  * Usage: npx tsx scripts/ingest-nflverse.ts
  */
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   processSeasonRatings,
   seedFromPriorSeason,
   type GameResult,
+  type HfaConfig,
   type TeamRating,
+  HOME_FIELD_ADVANTAGE,
 } from '../src/lib/powerRatings.ts'
 import {
   buildDefenderValuesFromSeasonRows,
   buildOlValuesFromSnapRows,
   buildPlayerValuesFromSeasonRows,
   computeInjuryDifferential,
+  setPlayerValueCoeffs,
   type HistoricalInjuryReport,
   type PlayerValue,
 } from '../src/lib/playerValues.ts'
@@ -90,6 +93,30 @@ function num(v: string | undefined): number | null {
 }
 
 async function main() {
+  let hfa: HfaConfig = HOME_FIELD_ADVANTAGE
+  let useReplacementAddBack = true
+  try {
+    const raw = await readFile(path.join(OUT_DIR, 'calibrated-coeffs.json'), 'utf8')
+    const calibrated = JSON.parse(raw) as {
+      hfa?: HfaConfig
+      playerCoeffs?: Record<string, number>
+      useReplacementAddBack?: boolean
+      generatedAt?: string
+    }
+    if (calibrated.generatedAt && calibrated.generatedAt !== 'pending') {
+      if (calibrated.hfa != null) hfa = calibrated.hfa
+      if (calibrated.playerCoeffs) setPlayerValueCoeffs(calibrated.playerCoeffs)
+      if (calibrated.useReplacementAddBack != null) {
+        useReplacementAddBack = calibrated.useReplacementAddBack
+      }
+      console.log(
+        `Using calibrated coeffs (HFA=${typeof hfa === 'number' ? hfa : 'seasonMap'}, replacement=${useReplacementAddBack})`,
+      )
+    }
+  } catch {
+    console.log('No calibrated-coeffs.json — using defaults')
+  }
+
   console.log('Downloading nflverse games…')
   const gamesCsv = await fetchText(`${BASE}/schedules/games.csv`)
   const allGames = parseCsv(gamesCsv)
@@ -205,6 +232,7 @@ async function main() {
       season,
       seasonValues,
       injuries,
+      { useReplacementAddBack },
     )
     injuryLostCache.set(key, lost)
     return lost
@@ -234,6 +262,7 @@ async function main() {
       seasonGames,
       seed,
       (s, w, team) => valueLost(s, w, team),
+      hfa,
     )
     ratingsBySeason[season] = { byWeek, final, seed }
     priorFinal = final
@@ -241,7 +270,7 @@ async function main() {
     for (const game of seasonGames) {
       const homeR = ratingBeforeWeek(byWeek, game.week, game.homeTeam, seed)
       const awayR = ratingBeforeWeek(byWeek, game.week, game.awayTeam, seed)
-      predictions.push(buildGamePrediction(game, homeR, awayR))
+      predictions.push(buildGamePrediction(game, homeR, awayR, hfa))
     }
   }
 

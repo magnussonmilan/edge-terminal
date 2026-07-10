@@ -1,0 +1,35 @@
+{
+  "split": {
+    "trainSeasons": [
+      2022,
+      2023
+    ],
+    "validationSeasons": [
+      2024
+    ]
+  },
+  "hfa": 0.75,
+  "playerCoeffs": {
+    "qbYpaMult": 0.55,
+    "qbIntMult": 20,
+    "qbEpaMult": 1.5,
+    "wrPprMult": 0.12,
+    "wrShareMult": 2,
+    "rbYpgDiv": 40,
+    "rbTdMult": 0.4
+  },
+  "useReplacementAddBack": true,
+  "baseline": {
+    "trainWinRate": 0.4918032786885246,
+    "validationWinRate": 0.5172413793103449
+  },
+  "final": {
+    "trainWinRate": 0.48563218390804597,
+    "validationWinRate": 0.5326633165829145,
+    "allWinRate": 0.5027422303473492,
+    "brierScore": 0.22815647835248087,
+    "roiIfFollowed": -0.04021937842778794,
+    "totalPlayableGames": 547
+  },
+  "generatedAt": "2026-07-10T20:49:12.383Z"
+}

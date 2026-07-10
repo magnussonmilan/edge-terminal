@@ -1,0 +1,100 @@
+[
+  {
+    "step": "1-hfa",
+    "coefficient": "homeFieldAdvantage",
+    "oldValue": 2,
+    "newValue": 0.75,
+    "trainWinRateBefore": 0.4918032786885246,
+    "trainWinRateAfter": 0.49291784702549574,
+    "validationWinRateBefore": 0.5172413793103449,
+    "validationWinRateAfter": 0.5483870967741935,
+    "note": "HFA selected on train WR; 2024 never used for selection."
+  },
+  {
+    "step": "2-replacement",
+    "coefficient": "injuryReplacementAddBack",
+    "oldValue": "off",
+    "newValue": "on",
+    "trainWinRateBefore": 0.49291784702549574,
+    "trainWinRateAfter": 0.4827586206896552,
+    "validationWinRateBefore": 0.5483870967741935,
+    "validationWinRateAfter": 0.5326633165829145,
+    "note": "Replacement add-back enabled (starter − backup, else position median)."
+  },
+  {
+    "step": "3-qbYpaMult",
+    "coefficient": "qbYpaMult",
+    "oldValue": 0.35,
+    "newValue": 0.55,
+    "trainWinRateBefore": 0.4827586206896552,
+    "trainWinRateAfter": 0.48563218390804597,
+    "validationWinRateBefore": 0.5326633165829145,
+    "validationWinRateAfter": 0.5326633165829145
+  },
+  {
+    "step": "3-qbIntMult",
+    "coefficient": "qbIntMult",
+    "oldValue": 20,
+    "newValue": 20,
+    "trainWinRateBefore": 0.48563218390804597,
+    "trainWinRateAfter": 0.48563218390804597,
+    "validationWinRateBefore": 0.5326633165829145,
+    "validationWinRateAfter": 0.5326633165829145,
+    "note": "No train win-rate gain — coefficient unchanged."
+  },
+  {
+    "step": "3-qbEpaMult",
+    "coefficient": "qbEpaMult",
+    "oldValue": 1.5,
+    "newValue": 1.5,
+    "trainWinRateBefore": 0.48563218390804597,
+    "trainWinRateAfter": 0.48563218390804597,
+    "validationWinRateBefore": 0.5326633165829145,
+    "validationWinRateAfter": 0.5326633165829145,
+    "note": "No train win-rate gain — coefficient unchanged."
+  },
+  {
+    "step": "3-wrPprMult",
+    "coefficient": "wrPprMult",
+    "oldValue": 0.12,
+    "newValue": 0.12,
+    "trainWinRateBefore": 0.48563218390804597,
+    "trainWinRateAfter": 0.48563218390804597,
+    "validationWinRateBefore": 0.5326633165829145,
+    "validationWinRateAfter": 0.5326633165829145,
+    "note": "No train win-rate gain — coefficient unchanged."
+  },
+  {
+    "step": "3-wrShareMult",
+    "coefficient": "wrShareMult",
+    "oldValue": 2,
+    "newValue": 2,
+    "trainWinRateBefore": 0.48563218390804597,
+    "trainWinRateAfter": 0.48563218390804597,
+    "validationWinRateBefore": 0.5326633165829145,
+    "validationWinRateAfter": 0.5326633165829145,
+    "note": "No train win-rate gain — coefficient unchanged."
+  },
+  {
+    "step": "3-rbYpgDiv",
+    "coefficient": "rbYpgDiv",
+    "oldValue": 40,
+    "newValue": 40,
+    "trainWinRateBefore": 0.48563218390804597,
+    "trainWinRateAfter": 0.48563218390804597,
+    "validationWinRateBefore": 0.5326633165829145,
+    "validationWinRateAfter": 0.5326633165829145,
+    "note": "No train win-rate gain — coefficient unchanged."
+  },
+  {
+    "step": "3-rbTdMult",
+    "coefficient": "rbTdMult",
+    "oldValue": 0.4,
+    "newValue": 0.4,
+    "trainWinRateBefore": 0.48563218390804597,
+    "trainWinRateAfter": 0.48563218390804597,
+    "validationWinRateBefore": 0.5326633165829145,
+    "validationWinRateAfter": 0.5326633165829145,
+    "note": "No train win-rate gain — coefficient unchanged."
+  }
+]
