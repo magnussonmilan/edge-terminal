@@ -1,6 +1,25 @@
 {
+  "methodology": "joint-ridge + rolling-origin CV",
+  "ridgeLambda": 10,
+  "seasons": [
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024
+  ],
   "split": {
     "trainSeasons": [
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
       2022,
       2023
     ],
@@ -8,28 +27,215 @@
       2024
     ]
   },
-  "hfa": 0.75,
+  "hfa": 1.75,
   "playerCoeffs": {
-    "qbYpaMult": 0.55,
-    "qbIntMult": 20,
-    "qbEpaMult": 1.5,
-    "wrPprMult": 0.12,
-    "wrShareMult": 2,
-    "rbYpgDiv": 40,
-    "rbTdMult": 0.4
+    "qbYpaMult": 0.05,
+    "qbIntMult": 5,
+    "qbEpaMult": 4,
+    "wrPprMult": 0.07749645561858069,
+    "wrShareMult": 0.5,
+    "rbYpgDiv": 80,
+    "rbTdMult": 1.2
   },
   "useReplacementAddBack": true,
-  "baseline": {
-    "trainWinRate": 0.4918032786885246,
-    "validationWinRate": 0.5172413793103449
+  "folds": [
+    {
+      "trainSeasons": [
+        2016
+      ],
+      "valSeason": 2017,
+      "winRate": 0.4713375796178344,
+      "brierScore": 0.22932021351629975,
+      "sampleSize": 157,
+      "hfa": 2.5,
+      "playerCoeffs": {
+        "qbYpaMult": 0.5097386448773461,
+        "qbIntMult": 5,
+        "qbEpaMult": 4,
+        "wrPprMult": 0.1173508193745377,
+        "wrShareMult": 0.5,
+        "rbYpgDiv": 20,
+        "rbTdMult": 1.2
+      }
+    },
+    {
+      "trainSeasons": [
+        2016,
+        2017
+      ],
+      "valSeason": 2018,
+      "winRate": 0.49079754601226994,
+      "brierScore": 0.22446100171065372,
+      "sampleSize": 163,
+      "hfa": 2.5,
+      "playerCoeffs": {
+        "qbYpaMult": 0.45299306054623223,
+        "qbIntMult": 5,
+        "qbEpaMult": 4,
+        "wrPprMult": 0.09699172362159676,
+        "wrShareMult": 0.5,
+        "rbYpgDiv": 80,
+        "rbTdMult": 1.2
+      }
+    },
+    {
+      "trainSeasons": [
+        2016,
+        2017,
+        2018
+      ],
+      "valSeason": 2019,
+      "winRate": 0.45714285714285713,
+      "brierScore": 0.22624631537855722,
+      "sampleSize": 140,
+      "hfa": 2.5,
+      "playerCoeffs": {
+        "qbYpaMult": 0.5340508498755252,
+        "qbIntMult": 5,
+        "qbEpaMult": 4,
+        "wrPprMult": 0.07240112985279919,
+        "wrShareMult": 0.5,
+        "rbYpgDiv": 80,
+        "rbTdMult": 1.2
+      }
+    },
+    {
+      "trainSeasons": [
+        2016,
+        2017,
+        2018,
+        2019
+      ],
+      "valSeason": 2020,
+      "winRate": 0.5159235668789809,
+      "brierScore": 0.2224863593689734,
+      "sampleSize": 157,
+      "hfa": 1.75,
+      "playerCoeffs": {
+        "qbYpaMult": 0.05,
+        "qbIntMult": 5,
+        "qbEpaMult": 4,
+        "wrPprMult": 0.07925370474910873,
+        "wrShareMult": 0.5,
+        "rbYpgDiv": 80,
+        "rbTdMult": 1.2
+      }
+    },
+    {
+      "trainSeasons": [
+        2016,
+        2017,
+        2018,
+        2019,
+        2020
+      ],
+      "valSeason": 2021,
+      "winRate": 0.4606741573033708,
+      "brierScore": 0.24020744346469375,
+      "sampleSize": 178,
+      "hfa": 1.5,
+      "playerCoeffs": {
+        "qbYpaMult": 0.05,
+        "qbIntMult": 5,
+        "qbEpaMult": 4,
+        "wrPprMult": 0.08843844873856584,
+        "wrShareMult": 0.5,
+        "rbYpgDiv": 75.44623605359027,
+        "rbTdMult": 1.2
+      }
+    },
+    {
+      "trainSeasons": [
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021
+      ],
+      "valSeason": 2022,
+      "winRate": 0.47878787878787876,
+      "brierScore": 0.2287817987088275,
+      "sampleSize": 165,
+      "hfa": 1.5,
+      "playerCoeffs": {
+        "qbYpaMult": 0.05,
+        "qbIntMult": 5,
+        "qbEpaMult": 4,
+        "wrPprMult": 0.09038030170677225,
+        "wrShareMult": 0.5,
+        "rbYpgDiv": 80,
+        "rbTdMult": 1.2
+      }
+    },
+    {
+      "trainSeasons": [
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022
+      ],
+      "valSeason": 2023,
+      "winRate": 0.45625,
+      "brierScore": 0.24276476019308654,
+      "sampleSize": 160,
+      "hfa": 1.5,
+      "playerCoeffs": {
+        "qbYpaMult": 0.05,
+        "qbIntMult": 5,
+        "qbEpaMult": 4,
+        "wrPprMult": 0.08282383842507407,
+        "wrShareMult": 0.5,
+        "rbYpgDiv": 80,
+        "rbTdMult": 1.2
+      }
+    },
+    {
+      "trainSeasons": [
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023
+      ],
+      "valSeason": 2024,
+      "winRate": 0.5307262569832403,
+      "brierScore": 0.21593997805660403,
+      "sampleSize": 179,
+      "hfa": 1.75,
+      "playerCoeffs": {
+        "qbYpaMult": 0.05,
+        "qbIntMult": 5,
+        "qbEpaMult": 4,
+        "wrPprMult": 0.08385370706768053,
+        "wrShareMult": 0.5,
+        "rbYpgDiv": 80,
+        "rbTdMult": 1.2
+      }
+    }
+  ],
+  "crossFold": {
+    "meanWinRate": 0.482704980340804,
+    "stdWinRate": 0.026120427580270552,
+    "meanBrier": 0.22877598379971198,
+    "totalValGames": 1299,
+    "clearsBreakevenAtMeanMinusOneStd": false,
+    "meanMinusOneStd": 0.45658455276053345,
+    "breakeven": 0.524
   },
   "final": {
-    "trainWinRate": 0.48563218390804597,
-    "validationWinRate": 0.5326633165829145,
-    "allWinRate": 0.5027422303473492,
-    "brierScore": 0.22815647835248087,
-    "roiIfFollowed": -0.04021937842778794,
-    "totalPlayableGames": 547
+    "allWinRate": 0.4840499306518724,
+    "brierScore": 0.2284750919697679,
+    "roiIfFollowed": -0.07590467784642545,
+    "totalPlayableGames": 1442,
+    "trainWinRate": 0.47743467933491684,
+    "validationWinRate": 0.5307262569832403
   },
-  "generatedAt": "2026-07-10T20:49:12.383Z"
+  "generatedAt": "2026-07-10T21:43:11.555Z"
 }

@@ -33,7 +33,7 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const OUT_DIR = path.join(__dirname, '../src/data/nfl')
-const SEASONS = [2022, 2023, 2024]
+const SEASONS = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
 
 const BASE =
   'https://github.com/nflverse/nflverse-data/releases/download'

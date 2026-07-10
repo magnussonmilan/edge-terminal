@@ -17,6 +17,7 @@ import {
   BREAKEVEN_WIN_RATE,
   computeBacktest,
   computeStarSignalDiagnostics,
+  formatWinRateWithCI,
   type StarLevelResultWithCI,
 } from '@/lib/backtest'
 import { DEFAULT_SPLIT, scoreSeasons } from '@/lib/calibration'
@@ -24,24 +25,35 @@ import { cn } from '@/lib/utils'
 import calibrationLog from '@/data/nfl/calibration-log.json'
 import calibratedCoeffs from '@/data/nfl/calibrated-coeffs.json'
 
-type LogEntry = {
-  step: string
-  coefficient: string
-  oldValue: number | string
-  newValue: number | string
-  trainWinRateBefore: number
-  trainWinRateAfter: number
-  validationWinRateBefore: number
-  validationWinRateAfter: number
-  note?: string
+type FoldLog = {
+  trainSeasons: number[]
+  valSeason: number
+  winRate: number
+  brierScore: number
+  sampleSize: number
+  hfa?: number
+}
+
+type CrossFold = {
+  meanWinRate: number
+  stdWinRate: number
+  meanBrier: number
+  totalValGames: number
+  clearsBreakevenAtMeanMinusOneStd: boolean
+  meanMinusOneStd?: number
+  breakeven?: number
+  folds?: FoldLog[]
 }
 
 type CalibratedFile = {
+  methodology?: string
+  seasons?: number[]
   split: { trainSeasons: number[]; validationSeasons: number[] }
-  baseline: { trainWinRate: number; validationWinRate: number }
+  crossFold?: CrossFold
+  folds?: FoldLog[]
   final: {
-    trainWinRate: number
-    validationWinRate: number
+    trainWinRate?: number
+    validationWinRate?: number
     allWinRate: number
     brierScore: number
     roiIfFollowed: number
@@ -52,8 +64,22 @@ type CalibratedFile = {
   useReplacementAddBack: boolean
 }
 
-const LOG = calibrationLog as LogEntry[]
+type CalibrationLogFile = {
+  methodology?: string
+  folds?: FoldLog[]
+  crossFold?: CrossFold
+}
+
 const CALIBRATED = calibratedCoeffs as CalibratedFile
+const LOG_FILE = calibrationLog as CalibrationLogFile
+
+const SPLIT = CALIBRATED.split ?? DEFAULT_SPLIT
+const CROSS: CrossFold | null = CALIBRATED.crossFold ?? null
+const FOLDS: FoldLog[] = Array.isArray(CALIBRATED.folds)
+  ? CALIBRATED.folds
+  : Array.isArray(LOG_FILE.folds)
+    ? LOG_FILE.folds
+    : []
 
 function toStarChartRows(breakdown: StarLevelResultWithCI[]) {
   return breakdown.map((row) => {
@@ -66,7 +92,12 @@ function toStarChartRows(breakdown: StarLevelResultWithCI[]) {
       games: row.gamesCount,
       wilsonLow: low,
       wilsonHigh: high,
-      // Asymmetric ErrorBar offsets relative to winRate
+      ciLabel: formatWinRateWithCI(
+        row.winRate,
+        row.wilsonLow,
+        row.wilsonHigh,
+        row.gamesCount,
+      ),
       error: [Math.max(0, winRate - low), Math.max(0, high - winRate)] as [
         number,
         number,
@@ -78,8 +109,8 @@ function toStarChartRows(breakdown: StarLevelResultWithCI[]) {
 function resolveSeasons(
   season: number | 'all' | 'train' | 'validation',
 ): number[] | 'all' {
-  if (season === 'train') return DEFAULT_SPLIT.trainSeasons
-  if (season === 'validation') return DEFAULT_SPLIT.validationSeasons
+  if (season === 'train') return SPLIT.trainSeasons
+  if (season === 'validation') return SPLIT.validationSeasons
   if (season === 'all') return 'all'
   return [season]
 }
@@ -87,25 +118,25 @@ function resolveSeasons(
 export function BacktestPage() {
   const seasons = listSeasons()
   const [season, setSeason] = useState<number | 'all' | 'train' | 'validation'>(
-    'validation',
+    'all',
   )
 
   const summary = useMemo(() => {
     if (season === 'train') {
-      return scoreSeasons(ALL_PREDICTIONS, DEFAULT_SPLIT.trainSeasons)
+      return scoreSeasons(ALL_PREDICTIONS, SPLIT.trainSeasons)
     }
     if (season === 'validation') {
-      return scoreSeasons(ALL_PREDICTIONS, DEFAULT_SPLIT.validationSeasons)
+      return scoreSeasons(ALL_PREDICTIONS, SPLIT.validationSeasons)
     }
     return computeBacktest(ALL_PREDICTIONS, season)
   }, [season])
 
   const trainSummary = useMemo(
-    () => scoreSeasons(ALL_PREDICTIONS, DEFAULT_SPLIT.trainSeasons),
+    () => scoreSeasons(ALL_PREDICTIONS, SPLIT.trainSeasons),
     [],
   )
   const valSummary = useMemo(
-    () => scoreSeasons(ALL_PREDICTIONS, DEFAULT_SPLIT.validationSeasons),
+    () => scoreSeasons(ALL_PREDICTIONS, SPLIT.validationSeasons),
     [],
   )
 
@@ -120,7 +151,6 @@ export function BacktestPage() {
 
   const winPct = summary.overallWinRate * 100
   const roiPct = summary.roiIfFollowed * 100
-  const holdoutBelowBreakEven = valSummary.overallWinRate < BREAKEVEN_WIN_RATE
 
   const starChart = toStarChartRows(summary.starLevelBreakdown)
   const earlyChart = toStarChartRows(diagnostics.early.breakdown)
@@ -131,6 +161,9 @@ export function BacktestPage() {
     [diagnostics, summary.totalPlayableGames],
   )
 
+  const trainLabel = `Train (${SPLIT.trainSeasons[0]}–${SPLIT.trainSeasons[SPLIT.trainSeasons.length - 1]})`
+  const valLabel = `Last season (${SPLIT.validationSeasons.join(', ')})`
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
       <header className="mb-6">
@@ -138,22 +171,53 @@ export function BacktestPage() {
           Backtest
         </h1>
         <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-          Retrospective backtest over nflverse data. Coefficients were fit on
-          2022–2023 only; 2024 is holdout. Past performance does not guarantee
-          future results.
+          Joint ridge calibration with rolling-origin cross-validation
+          {CALIBRATED.seasons
+            ? ` over ${CALIBRATED.seasons[0]}–${CALIBRATED.seasons[CALIBRATED.seasons.length - 1]}`
+            : ''}
+          . Primary validation metric is cross-fold mean ± std — not a single
+          holdout year. Past performance does not guarantee future results.
         </p>
       </header>
 
+      {CROSS && (
+        <div className="mb-6 rounded-lg border border-slate-200 bg-white p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+            Cross-fold validation WR
+          </p>
+          <p className="mt-1 tabular-nums text-2xl font-semibold text-slate-900">
+            {(CROSS.meanWinRate * 100).toFixed(1)}% ±{' '}
+            {(CROSS.stdWinRate * 100).toFixed(1)}pp
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            mean − 1σ = {((CROSS.meanWinRate - CROSS.stdWinRate) * 100).toFixed(1)}%
+            {' · '}
+            {FOLDS.length} folds · {CROSS.totalValGames} val-fold games summed ·
+            breakeven {(BREAKEVEN_WIN_RATE * 100).toFixed(1)}%
+          </p>
+          {!CROSS.clearsBreakevenAtMeanMinusOneStd ? (
+            <p className="mt-2 text-sm text-slate-700">
+              mean − 1σ does not clear breakeven — no trustworthy edge claimed.
+            </p>
+          ) : (
+            <p className="mt-2 text-sm text-slate-700">
+              mean − 1σ clears breakeven on this sample — still provisional, not
+              a guarantee.
+            </p>
+          )}
+        </div>
+      )}
+
       <div className="mb-6 grid gap-4 sm:grid-cols-2">
         <SplitCard
-          label="Train (2022–2023)"
+          label={trainLabel}
           winRate={trainSummary.overallWinRate}
           games={trainSummary.totalPlayableGames}
           active={season === 'train'}
           onClick={() => setSeason('train')}
         />
         <SplitCard
-          label="Validation holdout (2024)"
+          label={valLabel}
           winRate={valSummary.overallWinRate}
           games={valSummary.totalPlayableGames}
           active={season === 'validation'}
@@ -162,45 +226,24 @@ export function BacktestPage() {
         />
       </div>
 
-      {holdoutBelowBreakEven ? (
-        <p className="mb-4 rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-          Holdout win rate is still below the {(BREAKEVEN_WIN_RATE * 100).toFixed(1)}%
-          break-even line. That is a legitimate finding — calibration improved
-          transparency, not a claim of edge on unseen data.
-        </p>
-      ) : trainSummary.overallWinRate < BREAKEVEN_WIN_RATE ? (
-        <p className="mb-4 rounded-md border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-          Holdout (2024) clears the {(BREAKEVEN_WIN_RATE * 100).toFixed(1)}% break-even
-          line, but train (2022–2023) does not. Treat the holdout result as
-          encouraging, not proven — one season of outperformance is a thin sample.
-        </p>
-      ) : null}
-
-      {trainSummary.overallWinRate > valSummary.overallWinRate + 0.03 && (
-        <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-          Train is meaningfully ahead of validation — treat train-only gains as
-          possible overfitting, not improvement.
-        </p>
-      )}
-
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
           View
         </span>
         <Chip
-          active={season === 'validation'}
-          label="Holdout 2024"
-          onClick={() => setSeason('validation')}
+          active={season === 'all'}
+          label="All seasons"
+          onClick={() => setSeason('all')}
         />
         <Chip
           active={season === 'train'}
-          label="Train 22–23"
+          label="Train window"
           onClick={() => setSeason('train')}
         />
         <Chip
-          active={season === 'all'}
-          label="All (mixed)"
-          onClick={() => setSeason('all')}
+          active={season === 'validation'}
+          label="Last season"
+          onClick={() => setSeason('validation')}
         />
         {seasons.map((s) => (
           <Chip
@@ -214,7 +257,7 @@ export function BacktestPage() {
 
       <div className="grid gap-4 sm:grid-cols-3">
         <MetricCard
-          label="ATS win rate"
+          label="ATS win rate (view)"
           value={`${winPct.toFixed(1)}%`}
           hint={`Break-even at −110 is ${(BREAKEVEN_WIN_RATE * 100).toFixed(1)}% · ${summary.totalPlayableGames} playable games`}
           tone={
@@ -255,15 +298,33 @@ export function BacktestPage() {
           Win rate by star level
         </h2>
         <p className="mt-1 text-xs text-slate-500">
-          Whiskers are 95% Wilson score intervals. Overlapping bars mean the
-          buckets are not distinguishable from noise at this sample size.
+          Each tier shows Wilson 95% CI as whiskers and as “rate ± half-width,
+          n=…”. Overlapping intervals mean buckets are not distinguishable from
+          noise.
         </p>
         <StarBarChart data={starChart} height={256} />
+        <ul className="mt-3 grid gap-1 sm:grid-cols-2">
+          {summary.starLevelBreakdown.map((row) => (
+            <li
+              key={row.starLevel}
+              className="text-xs tabular-nums text-slate-700"
+            >
+              <span className="font-medium text-slate-900">
+                {row.starLevel}★
+              </span>{' '}
+              {formatWinRateWithCI(
+                row.winRate,
+                row.wilsonLow,
+                row.wilsonHigh,
+                row.gamesCount,
+              )}
+            </li>
+          ))}
+        </ul>
         {diagnostics.adjacentOverlapRate >= 0.8 && (
           <p className="mt-3 text-xs text-slate-600">
             {(diagnostics.adjacentOverlapRate * 100).toFixed(0)}% of adjacent
-            star buckets have overlapping Wilson intervals in this view — the
-            inverted 0.5★ vs 3★ pattern is not statistically resolved.
+            star buckets have overlapping Wilson intervals in this view.
           </p>
         )}
       </section>
@@ -334,73 +395,65 @@ export function BacktestPage() {
       <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5">
         <h2 className="text-sm font-semibold text-slate-900">Calibration log</h2>
         <p className="mt-1 text-xs text-slate-500">
-          Each step was scored on train and holdout. Selection used train win rate
-          (holdout stayed unseen for picking coefficients).
+          Rolling-origin folds: coeffs fit by joint ridge on train seasons
+          (margins), scored on the next unseen season. Selection is not based on
+          ATS win rate.
         </p>
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[640px] text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-200 text-slate-500">
-                <th className="py-2 pr-3 font-medium">Step</th>
-                <th className="py-2 pr-3 font-medium">Coeff</th>
-                <th className="py-2 pr-3 font-medium">Old → New</th>
-                <th className="py-2 pr-3 font-medium">Train</th>
-                <th className="py-2 pr-3 font-medium">Holdout</th>
-                <th className="py-2 font-medium">Note</th>
-              </tr>
-            </thead>
-            <tbody>
-              {LOG.map((row) => {
-                const trainDelta = row.trainWinRateAfter - row.trainWinRateBefore
-                const valDelta =
-                  row.validationWinRateAfter - row.validationWinRateBefore
-                return (
-                  <tr key={row.step} className="border-b border-slate-100">
-                    <td className="py-2 pr-3 tabular-nums text-slate-700">{row.step}</td>
-                    <td className="py-2 pr-3 text-slate-800">{row.coefficient}</td>
+        {FOLDS.length > 0 ? (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[560px] text-left text-xs">
+              <thead>
+                <tr className="border-b border-slate-200 text-slate-500">
+                  <th className="py-2 pr-3 font-medium">Train</th>
+                  <th className="py-2 pr-3 font-medium">Val</th>
+                  <th className="py-2 pr-3 font-medium">WR</th>
+                  <th className="py-2 pr-3 font-medium">Brier</th>
+                  <th className="py-2 font-medium">n</th>
+                </tr>
+              </thead>
+              <tbody>
+                {FOLDS.map((row) => (
+                  <tr
+                    key={`${row.valSeason}-${row.trainSeasons.join('-')}`}
+                    className="border-b border-slate-100"
+                  >
+                    <td className="py-2 pr-3 tabular-nums text-slate-700">
+                      {row.trainSeasons[0]}
+                      {row.trainSeasons.length > 1
+                        ? `–${row.trainSeasons[row.trainSeasons.length - 1]}`
+                        : ''}
+                    </td>
+                    <td className="py-2 pr-3 tabular-nums text-slate-800">
+                      {row.valSeason}
+                    </td>
+                    <td className="py-2 pr-3 tabular-nums text-slate-700">
+                      {(row.winRate * 100).toFixed(1)}%
+                    </td>
                     <td className="py-2 pr-3 tabular-nums text-slate-600">
-                      {String(row.oldValue)} → {String(row.newValue)}
+                      {row.brierScore.toFixed(3)}
                     </td>
-                    <td
-                      className={cn(
-                        'py-2 pr-3 tabular-nums',
-                        trainDelta > 0.002
-                          ? 'text-edge-positive'
-                          : trainDelta < -0.002
-                            ? 'text-red-600'
-                            : 'text-slate-700',
-                      )}
-                    >
-                      {(row.trainWinRateBefore * 100).toFixed(1)}% →{' '}
-                      {(row.trainWinRateAfter * 100).toFixed(1)}%
+                    <td className="py-2 tabular-nums text-slate-600">
+                      {row.sampleSize}
                     </td>
-                    <td
-                      className={cn(
-                        'py-2 pr-3 tabular-nums',
-                        valDelta > 0.002
-                          ? 'text-edge-positive'
-                          : valDelta < -0.002
-                            ? 'text-red-600'
-                            : 'text-slate-700',
-                      )}
-                    >
-                      {(row.validationWinRateBefore * 100).toFixed(1)}% →{' '}
-                      {(row.validationWinRateAfter * 100).toFixed(1)}%
-                    </td>
-                    <td className="py-2 text-slate-500">{row.note ?? '—'}</td>
                   </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-3 text-xs text-slate-400">
-          Baseline train {(CALIBRATED.baseline.trainWinRate * 100).toFixed(1)}% /
-          holdout {(CALIBRATED.baseline.validationWinRate * 100).toFixed(1)}% → final
-          train {(CALIBRATED.final.trainWinRate * 100).toFixed(1)}% / holdout{' '}
-          {(CALIBRATED.final.validationWinRate * 100).toFixed(1)}%. Replacement
-          add-back: {CALIBRATED.useReplacementAddBack ? 'on' : 'off'}.
-        </p>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="mt-3 text-xs text-slate-500">
+            No fold log yet — run{' '}
+            <code className="text-slate-700">npm run calibrate</code>.
+          </p>
+        )}
+        {CROSS && (
+          <p className="mt-3 text-xs text-slate-400">
+            Cross-fold mean {(CROSS.meanWinRate * 100).toFixed(1)}% ±{' '}
+            {(CROSS.stdWinRate * 100).toFixed(1)}pp · all-season playable{' '}
+            {CALIBRATED.final.totalPlayableGames} · replacement{' '}
+            {CALIBRATED.useReplacementAddBack ? 'on' : 'off'}.
+          </p>
+        )}
       </section>
 
       <p className="mt-6 text-sm text-slate-500">
@@ -444,13 +497,10 @@ function StarBarChart({
             width={compact ? 36 : 40}
           />
           <Tooltip
-            formatter={(value, _n, item) => {
+            formatter={(_value, _n, item) => {
               const row = item?.payload as ChartRow | undefined
-              if (!row) return [`${value}%`, 'Win rate']
-              return [
-                `${row.winRate}% (${row.games} games) · 95% CI ${row.wilsonLow}–${row.wilsonHigh}%`,
-                'Win rate',
-              ]
+              if (!row) return ['—', 'Win rate']
+              return [row.ciLabel, 'Win rate']
             }}
           />
           <ReferenceLine
@@ -519,7 +569,6 @@ function interpretAtsCorrelation(r: number): string {
 }
 
 function monotonicScore(breakdown: StarLevelResultWithCI[]): number {
-  // Spearman-ish: count adjacent pairs where higher stars have higher WR
   let good = 0
   let pairs = 0
   for (let i = 0; i < breakdown.length - 1; i++) {
@@ -540,11 +589,11 @@ function buildDiagnosticClosing(
 
   if (d.adjacentOverlapRate >= 0.8) {
     parts.push(
-      `Wilson intervals overlap for ${(d.adjacentOverlapRate * 100).toFixed(0)}% of adjacent star buckets (${totalGames} playable games split six ways). Sample size is too small to distinguish these buckets from noise — the inverted low-star vs high-star pattern in a single season is not a resolved finding.`,
+      `Wilson intervals overlap for ${(d.adjacentOverlapRate * 100).toFixed(0)}% of adjacent star buckets (${totalGames} playable games split six ways). Sample size is too small to distinguish these buckets from noise.`,
     )
   } else {
     parts.push(
-      'Some adjacent star buckets have non-overlapping Wilson intervals, so bucket differences may be real — still treat one-season patterns cautiously.',
+      'Some adjacent star buckets have non-overlapping Wilson intervals, so bucket differences may be real — still treat single-season patterns cautiously.',
     )
   }
 
@@ -552,11 +601,11 @@ function buildDiagnosticClosing(
   const ats = d.correlationAts.correlation
   if (err > 0.1 && Math.abs(ats) < 0.1) {
     parts.push(
-      `Differential↔error correlation is weakly positive (r=${err.toFixed(2)}) while differential↔ATS is near zero (r=${ats.toFixed(2)}) — consistent with stars partly reflecting model/market disagreement that is not informative, but the effect is small.`,
+      `Differential↔error correlation is weakly positive (r=${err.toFixed(2)}) while differential↔ATS is near zero (r=${ats.toFixed(2)}).`,
     )
   } else if (Math.abs(ats) < 0.1 && Math.abs(err) < 0.1) {
     parts.push(
-      `Neither differential↔error (r=${err.toFixed(2)}) nor differential↔ATS (r=${ats.toFixed(2)}) shows a meaningful relationship — the star ladder is not tracking outcomes or error in a clear direction here.`,
+      `Neither differential↔error (r=${err.toFixed(2)}) nor differential↔ATS (r=${ats.toFixed(2)}) shows a meaningful relationship.`,
     )
   } else {
     parts.push(
@@ -568,7 +617,7 @@ function buildDiagnosticClosing(
   const lateMono = monotonicScore(d.late.breakdown)
   if (lateMono > earlyMono + 0.25 && lateMono >= 0.6) {
     parts.push(
-      `Weeks 5+ look more orderly than weeks 1–4 — early-season rating noise is a plausible contributor; discounting early-week confidence would be a reasonable next experiment.`,
+      'Weeks 5+ look more orderly than weeks 1–4 — early-season rating noise is a plausible contributor.',
     )
   } else {
     parts.push(
@@ -577,7 +626,7 @@ function buildDiagnosticClosing(
   }
 
   parts.push(
-    'Worth trying next only after more seasons of data (or a pre-registered larger sample): not retuning star thresholds on this chart. If anything, suppress or down-weight confidence until ratings have more games — but that is a hypothesis to test, not a fix justified by this sample.',
+    'Trust cross-fold mean ± std over any single-season star chart before claiming edge.',
   )
 
   return parts.join(' ')

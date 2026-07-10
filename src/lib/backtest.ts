@@ -50,6 +50,24 @@ export function wilsonInterval(
   }
 }
 
+/** Half-width of the Wilson interval (for "54.1% ± 3.2%" display). */
+export function wilsonHalfWidth(wins: number, n: number, z = 1.96): number {
+  const { low, high } = wilsonInterval(wins, n, z)
+  return (high - low) / 2
+}
+
+/** e.g. "54.1% ± 3.2%, n=210" */
+export function formatWinRateWithCI(
+  winRate: number,
+  wilsonLow: number,
+  wilsonHigh: number,
+  n: number,
+): string {
+  const pct = (winRate * 100).toFixed(1)
+  const half = (((wilsonHigh - wilsonLow) / 2) * 100).toFixed(1)
+  return `${pct}% ± ${half}%, n=${n}`
+}
+
 function withWilson(row: StarLevelResult): StarLevelResultWithCI {
   const { low, high } = wilsonInterval(row.winsAgainstSpread, row.gamesCount)
   return { ...row, wilsonLow: low, wilsonHigh: high }

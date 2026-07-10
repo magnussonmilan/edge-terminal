@@ -1,19 +1,27 @@
 {
   "source": "nflverse",
   "seasons": [
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
     2022,
     2023,
     2024
   ],
-  "generatedAt": "2026-07-10T20:32:22.828Z",
+  "generatedAt": "2026-07-10T21:43:11.576Z",
   "notes": [
-    "Score-based power ratings with formula injury differentials.",
-    "Game factors at prediction time: rest days + primetime only (simplified subset).",
-    "spread_line from nflverse is home-perspective historical closing line when present.",
-    "Not a claim of market-beating predictive edge — demo of mechanism transparency."
+    "Joint ridge player-value calibration with rolling-origin CV.",
+    "spread_line coverage verified 100% for included seasons.",
+    "Cross-fold mean±std is the primary validation metric — not a single holdout year."
   ],
-  "gameCount": 815,
-  "predictionCount": 815,
-  "injuryReportCount": 16747,
-  "playerValueCount": 5834
+  "gameCount": 2367,
+  "predictionCount": 2367,
+  "playableGames": 1442,
+  "injuryReportCount": 47881,
+  "playerValueCount": 17386,
+  "crossFoldMeanWinRate": 0.482704980340804,
+  "crossFoldStdWinRate": 0.026120427580270552
 }
