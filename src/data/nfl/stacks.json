@@ -1,0 +1,602 @@
+[
+  {
+    "id": "stack-2022_01_NO_ATL-0",
+    "gameId": "2022_01_NO_ATL",
+    "season": 2022,
+    "week": 1,
+    "matchup": "NO @ ATL",
+    "legs": [
+      {
+        "player": "ATL skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "ATL skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.35,
+    "combinedEdge": 0.06,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_01_SF_CHI-1",
+    "gameId": "2022_01_SF_CHI",
+    "season": 2022,
+    "week": 1,
+    "matchup": "SF @ CHI",
+    "legs": [
+      {
+        "player": "CHI skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "CHI skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.38,
+    "combinedEdge": 0.075,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_01_PIT_CIN-2",
+    "gameId": "2022_01_PIT_CIN",
+    "season": 2022,
+    "week": 1,
+    "matchup": "PIT @ CIN",
+    "legs": [
+      {
+        "player": "CIN skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "CIN skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.41,
+    "combinedEdge": 0.09,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_01_PHI_DET-3",
+    "gameId": "2022_01_PHI_DET",
+    "season": 2022,
+    "week": 1,
+    "matchup": "PHI @ DET",
+    "legs": [
+      {
+        "player": "DET skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "DET skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.43999999999999995,
+    "combinedEdge": 0.105,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_01_IND_HOU-4",
+    "gameId": "2022_01_IND_HOU",
+    "season": 2022,
+    "week": 1,
+    "matchup": "IND @ HOU",
+    "legs": [
+      {
+        "player": "HOU skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "HOU skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.47,
+    "combinedEdge": 0.06,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_01_BAL_NYJ-5",
+    "gameId": "2022_01_BAL_NYJ",
+    "season": 2022,
+    "week": 1,
+    "matchup": "BAL @ NYJ",
+    "legs": [
+      {
+        "player": "NYJ skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "NYJ skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.35,
+    "combinedEdge": 0.075,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_01_KC_ARI-6",
+    "gameId": "2022_01_KC_ARI",
+    "season": 2022,
+    "week": 1,
+    "matchup": "KC @ ARI",
+    "legs": [
+      {
+        "player": "ARI skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "ARI skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.38,
+    "combinedEdge": 0.09,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_01_NYG_TEN-7",
+    "gameId": "2022_01_NYG_TEN",
+    "season": 2022,
+    "week": 1,
+    "matchup": "NYG @ TEN",
+    "legs": [
+      {
+        "player": "TEN skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "TEN skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.41,
+    "combinedEdge": 0.105,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_01_DEN_SEA-8",
+    "gameId": "2022_01_DEN_SEA",
+    "season": 2022,
+    "week": 1,
+    "matchup": "DEN @ SEA",
+    "legs": [
+      {
+        "player": "SEA skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "SEA skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.43999999999999995,
+    "combinedEdge": 0.06,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_02_NE_PIT-9",
+    "gameId": "2022_02_NE_PIT",
+    "season": 2022,
+    "week": 2,
+    "matchup": "NE @ PIT",
+    "legs": [
+      {
+        "player": "PIT skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "PIT skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.47,
+    "combinedEdge": 0.075,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_02_ATL_LA-10",
+    "gameId": "2022_02_ATL_LA",
+    "season": 2022,
+    "week": 2,
+    "matchup": "ATL @ LA",
+    "legs": [
+      {
+        "player": "LA skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "LA skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.35,
+    "combinedEdge": 0.09,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_02_SEA_SF-11",
+    "gameId": "2022_02_SEA_SF",
+    "season": 2022,
+    "week": 2,
+    "matchup": "SEA @ SF",
+    "legs": [
+      {
+        "player": "SF skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "SF skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.38,
+    "combinedEdge": 0.105,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_02_CIN_DAL-12",
+    "gameId": "2022_02_CIN_DAL",
+    "season": 2022,
+    "week": 2,
+    "matchup": "CIN @ DAL",
+    "legs": [
+      {
+        "player": "DAL skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "DAL skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.41,
+    "combinedEdge": 0.06,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_02_HOU_DEN-13",
+    "gameId": "2022_02_HOU_DEN",
+    "season": 2022,
+    "week": 2,
+    "matchup": "HOU @ DEN",
+    "legs": [
+      {
+        "player": "DEN skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "DEN skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.43999999999999995,
+    "combinedEdge": 0.075,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_02_CHI_GB-14",
+    "gameId": "2022_02_CHI_GB",
+    "season": 2022,
+    "week": 2,
+    "matchup": "CHI @ GB",
+    "legs": [
+      {
+        "player": "GB skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "GB skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.47,
+    "combinedEdge": 0.09,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_02_TEN_BUF-15",
+    "gameId": "2022_02_TEN_BUF",
+    "season": 2022,
+    "week": 2,
+    "matchup": "TEN @ BUF",
+    "legs": [
+      {
+        "player": "BUF skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "BUF skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.35,
+    "combinedEdge": 0.105,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_03_DET_MIN-16",
+    "gameId": "2022_03_DET_MIN",
+    "season": 2022,
+    "week": 3,
+    "matchup": "DET @ MIN",
+    "legs": [
+      {
+        "player": "MIN skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "MIN skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.38,
+    "combinedEdge": 0.06,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_03_CIN_NYJ-17",
+    "gameId": "2022_03_CIN_NYJ",
+    "season": 2022,
+    "week": 3,
+    "matchup": "CIN @ NYJ",
+    "legs": [
+      {
+        "player": "NYJ skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "NYJ skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.41,
+    "combinedEdge": 0.075,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_03_PHI_WAS-18",
+    "gameId": "2022_03_PHI_WAS",
+    "season": 2022,
+    "week": 3,
+    "matchup": "PHI @ WAS",
+    "legs": [
+      {
+        "player": "PHI skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "PHI skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.43999999999999995,
+    "combinedEdge": 0.09,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_03_JAX_LAC-19",
+    "gameId": "2022_03_JAX_LAC",
+    "season": 2022,
+    "week": 3,
+    "matchup": "JAX @ LAC",
+    "legs": [
+      {
+        "player": "LAC skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "LAC skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.47,
+    "combinedEdge": 0.105,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_03_LA_ARI-20",
+    "gameId": "2022_03_LA_ARI",
+    "season": 2022,
+    "week": 3,
+    "matchup": "LA @ ARI",
+    "legs": [
+      {
+        "player": "ARI skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "ARI skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.35,
+    "combinedEdge": 0.06,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_03_GB_TB-21",
+    "gameId": "2022_03_GB_TB",
+    "season": 2022,
+    "week": 3,
+    "matchup": "GB @ TB",
+    "legs": [
+      {
+        "player": "TB skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "TB skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.38,
+    "combinedEdge": 0.075,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_04_MIA_CIN-22",
+    "gameId": "2022_04_MIA_CIN",
+    "season": 2022,
+    "week": 4,
+    "matchup": "MIA @ CIN",
+    "legs": [
+      {
+        "player": "MIA skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "MIA skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.41,
+    "combinedEdge": 0.09,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  },
+  {
+    "id": "stack-2022_04_MIN_NO-23",
+    "gameId": "2022_04_MIN_NO",
+    "season": 2022,
+    "week": 4,
+    "matchup": "MIN @ NO",
+    "legs": [
+      {
+        "player": "NO skill player A",
+        "prop": "Anytime TD",
+        "bookImplied": 0.42,
+        "fairValue": 0.51
+      },
+      {
+        "player": "NO skill player B",
+        "prop": "Receiving yards over",
+        "bookImplied": 0.48,
+        "fairValue": 0.55
+      }
+    ],
+    "correlation": 0.43999999999999995,
+    "combinedEdge": 0.105,
+    "highConfidenceGame": true,
+    "gameStars": 3
+  }
+]

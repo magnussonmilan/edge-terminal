@@ -5,6 +5,8 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import { AuthPage } from '@/pages/AuthPage'
 import { FeedPage } from '@/pages/FeedPage'
 import { PortfolioPage } from '@/pages/PortfolioPage'
+import { PredictionsPage } from '@/pages/PredictionsPage'
+import { StacksPage } from '@/pages/StacksPage'
 import { Skeleton } from '@/components/ui/skeleton'
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -49,6 +51,8 @@ export default function App() {
       >
         <Route path="/" element={<FeedPage />} />
         <Route path="/portfolio" element={<PortfolioPage />} />
+        <Route path="/predictions" element={<PredictionsPage />} />
+        <Route path="/stacks" element={<StacksPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

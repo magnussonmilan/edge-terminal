@@ -21,6 +21,8 @@ export function AppLayout() {
               <NavItem to="/" end>
                 Feed
               </NavItem>
+              <NavItem to="/predictions">Predictions</NavItem>
+              <NavItem to="/stacks">Stacks</NavItem>
               <NavItem to="/portfolio">Portfolio</NavItem>
             </div>
           </div>
