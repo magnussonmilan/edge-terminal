@@ -7,6 +7,8 @@ import { FeedPage } from '@/pages/FeedPage'
 import { PortfolioPage } from '@/pages/PortfolioPage'
 import { PredictionsPage } from '@/pages/PredictionsPage'
 import { StacksPage } from '@/pages/StacksPage'
+import { BacktestPage } from '@/pages/BacktestPage'
+import { HowItWorksPage } from '@/pages/HowItWorksPage'
 import { Skeleton } from '@/components/ui/skeleton'
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -53,6 +55,8 @@ export default function App() {
         <Route path="/portfolio" element={<PortfolioPage />} />
         <Route path="/predictions" element={<PredictionsPage />} />
         <Route path="/stacks" element={<StacksPage />} />
+        <Route path="/backtest" element={<BacktestPage />} />
+        <Route path="/how-it-works" element={<HowItWorksPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

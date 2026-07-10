@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { StackCardExpanded } from '@/components/stack/StackCardExpanded'
 import { cn } from '@/lib/utils'
 import { useState } from 'react'
+import { formatStars } from '@/lib/keyNumbers'
 
 interface StackCardProps {
   stack: Stack
@@ -45,6 +46,11 @@ export function StackCard({ stack }: StackCardProps) {
             <Badge className={cn('normal-case capitalize', TIER_STYLES[stack.tier])}>
               {stack.tier} corr
             </Badge>
+            {stack.highConfidenceGame && (
+              <Badge className="bg-emerald-50 text-edge-positive normal-case">
+                ★ High-confidence game ({formatStars(stack.gameStars)})
+              </Badge>
+            )}
           </div>
           <ChevronDown
             className={cn(

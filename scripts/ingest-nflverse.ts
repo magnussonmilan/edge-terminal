@@ -15,6 +15,8 @@ import {
   type TeamRating,
 } from '../src/lib/powerRatings.ts'
 import {
+  buildDefenderValuesFromSeasonRows,
+  buildOlValuesFromSnapRows,
   buildPlayerValuesFromSeasonRows,
   computeInjuryDifferential,
   type HistoricalInjuryReport,
@@ -122,6 +124,18 @@ async function main() {
   const injuries: HistoricalInjuryReport[] = []
   const playerValues: PlayerValue[] = []
 
+  console.log('Downloading players id map…')
+  const pfrToGsis: Record<string, string> = {}
+  try {
+    const playersCsv = await fetchText(`${BASE}/players/players.csv`)
+    for (const r of parseCsv(playersCsv)) {
+      if (r.pfr_id && r.gsis_id) pfrToGsis[r.pfr_id] = r.gsis_id
+    }
+    console.log(`  ${Object.keys(pfrToGsis).length} pfr→gsis mappings`)
+  } catch (e) {
+    console.warn('Players map skipped:', e)
+  }
+
   for (const season of SEASONS) {
     console.log(`Downloading injuries ${season}…`)
     try {
@@ -149,9 +163,34 @@ async function main() {
       )
       const values = buildPlayerValuesFromSeasonRows(parseCsv(statsCsv), season)
       playerValues.push(...values)
-      console.log(`  ${values.length} valued skill players`)
+      const olCount = values.filter((v) => v.position === 'OL').length
+      console.log(`  ${values.length} valued skill/OL players (${olCount} OL)`)
     } catch (e) {
       console.warn(`Player stats ${season} skipped:`, e)
+    }
+
+    console.log(`Downloading defensive season stats ${season}…`)
+    try {
+      const defCsv = await fetchText(
+        `${BASE}/player_stats/player_stats_def_season_${season}.csv`,
+      )
+      const defenders = buildDefenderValuesFromSeasonRows(parseCsv(defCsv), season)
+      playerValues.push(...defenders)
+      console.log(`  ${defenders.length} valued defenders`)
+    } catch (e) {
+      console.warn(`Def stats ${season} skipped:`, e)
+    }
+
+    console.log(`Downloading snap counts for OL ${season}…`)
+    try {
+      const snapCsv = await fetchText(
+        `${BASE}/snap_counts/snap_counts_${season}.csv`,
+      )
+      const ol = buildOlValuesFromSnapRows(parseCsv(snapCsv), season, pfrToGsis)
+      playerValues.push(...ol)
+      console.log(`  ${ol.length} valued OL from snaps`)
+    } catch (e) {
+      console.warn(`Snap counts ${season} skipped:`, e)
     }
   }
 
@@ -288,6 +327,39 @@ async function main() {
   console.log(
     `Playable predictions: ${predictions.filter((p) => p.starRating.playable).length}`,
   )
+
+  // Spot-check: injury differentials should be non-zero for some OL/def "out" weeks
+  let olDefHits = 0
+  let olHits = 0
+  const olDefIds = new Set(
+    playerValues
+      .filter((p) => p.position === 'OL' || p.position === 'DL' || p.position === 'LB' || p.position === 'DB')
+      .map((p) => p.playerId),
+  )
+  const olIds = new Set(
+    playerValues.filter((p) => p.position === 'OL').map((p) => p.playerId),
+  )
+  for (const inj of injuries) {
+    if (!['out', 'doubtful'].includes(inj.reportStatus)) continue
+    if (!olDefIds.has(inj.playerId)) continue
+    const lost = valueLost(inj.season, inj.week, inj.team)
+    if (lost > 0) {
+      olDefHits += 1
+      if (olIds.has(inj.playerId)) {
+        olHits += 1
+        if (olHits <= 3) {
+          console.log(
+            `  OL injury spot-check: ${inj.playerName} (${inj.position}) ${inj.team} W${inj.week} ${inj.season} → team lost ${lost.toFixed(2)}`,
+          )
+        }
+      } else if (olDefHits <= 3) {
+        console.log(
+          `  injury spot-check: ${inj.playerName} (${inj.position}) ${inj.team} W${inj.week} ${inj.season} → team lost ${lost.toFixed(2)}`,
+        )
+      }
+    }
+  }
+  console.log(`OL/def injury differentials with value > 0: ${olDefHits} (OL-matched: ${olHits})`)
 }
 
 function round(n: number): number {

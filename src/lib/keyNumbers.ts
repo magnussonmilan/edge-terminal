@@ -44,6 +44,8 @@ const STAR_THRESHOLDS: Array<{ minPct: number; stars: number }> = [
 /**
  * Sum key-number percentages for every integer between the model's predicted
  * spread and the posted spread (half-credit for whole numbers at either end).
+ * When the range straddles zero (opposite sides favored), deduct one point's
+ * key-number value once (KEY_NUMBER_PCT[1]).
  * Below 5.5% combined → not a playable signal.
  */
 export function calculateStarRating(
@@ -65,7 +67,6 @@ export function calculateStarRating(
     if (n === 0) continue
     const pct = KEY_NUMBER_PCT[Math.abs(n)] ?? 0
     const atEndpoint = n === start || n === end
-    // Half-credit when the bound lands exactly on a whole number endpoint
     const half =
       atEndpoint &&
       ((n === start && Math.abs(lo - n) < 1e-9) ||
@@ -73,15 +74,18 @@ export function calculateStarRating(
     differentialPct += half ? pct * 0.5 : pct
   }
 
-  // Also credit integers strictly between non-integer bounds already covered;
-  // if lo/hi are non-integer, ceil/floor loop already includes interior ints at full credit.
+  // Opposite sides of the number: deduct one point's value for crossing zero
+  if (lo < 0 && hi > 0) {
+    differentialPct -= KEY_NUMBER_PCT[1] ?? 0
+  }
+
+  differentialPct = Math.max(0, differentialPct)
 
   const playable = differentialPct >= 5.5
   if (!playable) {
     return { differentialPct, stars: 0, playable: false }
   }
 
-  // Round to nearest threshold below (largest threshold <= differentialPct)
   let stars = 0.5
   for (const t of STAR_THRESHOLDS) {
     if (differentialPct >= t.minPct) {

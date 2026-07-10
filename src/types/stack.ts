@@ -1,6 +1,6 @@
 import type { CorrelationResult, PropType } from '@/lib/correlation'
 
-/** Display stack — CorrelationResult plus chart lookback metadata from ingest. */
+/** Display stack — CorrelationResult plus chart lookback + cross-model context. */
 export interface Stack {
   pairKey: string
   playerA: {
@@ -31,6 +31,11 @@ export interface Stack {
   gameIds: string[]
   lookbackGames: number
   chartGames: number
+  /** Cross-model: most recent shared game has prediction stars ≥ 2.0 */
+  highConfidenceGame: boolean
+  gameStars: number
 }
+
+export type StackWithGameContext = Stack
 
 export type { CorrelationResult, PropType }

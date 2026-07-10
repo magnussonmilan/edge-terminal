@@ -213,7 +213,8 @@ function isInterestingPair(a: PropType, b: PropType): boolean {
   const set = new Set([a, b])
   if (set.has('pass_yds') && set.has('rec_yds')) return true
   if (set.has('pass_att') && set.has('targets')) return true
-  if (set.has('rush_yds') && a !== b) return true // QB rush ↔ RB rush
+  // QB rush ↔ RB rush only (both props must be rush_yds)
+  if (a === 'rush_yds' && b === 'rush_yds') return true
   if (a === 'targets' && b === 'targets') return true // WR1/WR2 competition
   if (a === 'rec_yds' && b === 'rec_yds') return true
   return false

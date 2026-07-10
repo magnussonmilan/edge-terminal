@@ -219,6 +219,18 @@ export function computeInjuryDifferential(
   return lost
 }
 
+const OL_POSITIONS = new Set(['OL', 'OT', 'OG', 'C', 'T', 'G', 'LS'])
+const DB_POSITIONS = new Set(['DB', 'CB', 'S', 'FS', 'SS', 'NB'])
+const LB_POSITIONS = new Set(['LB', 'ILB', 'OLB', 'MLB'])
+const DL_POSITIONS = new Set(['DL', 'DE', 'DT', 'NT'])
+
+function mapDefPosition(pos: string): 'DL' | 'LB' | 'DB' | null {
+  if (DL_POSITIONS.has(pos)) return 'DL'
+  if (LB_POSITIONS.has(pos)) return 'LB'
+  if (DB_POSITIONS.has(pos)) return 'DB'
+  return null
+}
+
 export function buildPlayerValuesFromSeasonRows(
   rows: Array<Record<string, string>>,
   season: number,
@@ -229,7 +241,7 @@ export function buildPlayerValuesFromSeasonRows(
     const pos = (row.position || '').toUpperCase()
     const playerId = row.player_id
     const playerName = row.player_display_name || row.player_name || playerId
-    const team = row.recent_team
+    const team = row.recent_team || row.team
     const games = Number(row.games) || 0
     if (!playerId || !team || games <= 0) continue
 
@@ -268,12 +280,118 @@ export function buildPlayerValuesFromSeasonRows(
         rushingYards: Number(row.rushing_yards) || 0,
         rushingTds: Number(row.rushing_tds) || 0,
       })
+    } else if (OL_POSITIONS.has(pos) && games >= 8) {
+      pv = valueOL({
+        playerId,
+        playerName,
+        team,
+        games,
+      })
     }
 
     if (pv) {
       pv.season = season
       out.push(pv)
     }
+  }
+
+  return out
+}
+
+/** Build OL values from nflverse snap_counts weekly rows (aggregated). */
+export function buildOlValuesFromSnapRows(
+  rows: Array<Record<string, string>>,
+  season: number,
+  pfrToGsis: Record<string, string> = {},
+): PlayerValue[] {
+  type Acc = {
+    playerId: string
+    playerName: string
+    team: string
+    games: number
+    snaps: number
+  }
+  const map = new Map<string, Acc>()
+
+  for (const row of rows) {
+    if (row.game_type && row.game_type !== 'REG') continue
+    const pos = (row.position || '').toUpperCase()
+    if (!OL_POSITIONS.has(pos)) continue
+    const snaps = Number(row.offense_snaps) || 0
+    if (snaps <= 0) continue
+    const pfrId = row.pfr_player_id || ''
+    const playerId = (pfrId && pfrToGsis[pfrId]) || pfrId || row.player || ''
+    const playerName = row.player || playerId
+    const team = row.team
+    if (!playerId || !team) continue
+    const key = `${playerId}:${team}`
+    const acc = map.get(key) ?? {
+      playerId,
+      playerName,
+      team,
+      games: 0,
+      snaps: 0,
+    }
+    acc.games += 1
+    acc.snaps += snaps
+    acc.team = team
+    acc.playerName = playerName
+    map.set(key, acc)
+  }
+
+  const out: PlayerValue[] = []
+  for (const acc of map.values()) {
+    if (acc.games < 8 || acc.snaps < 200) continue
+    // Prefer gsis-mapped ids so injury reports (gsis_id) can match
+    if (!acc.playerId.startsWith('00-')) continue
+    const pv = valueOL({
+      playerId: acc.playerId,
+      playerName: acc.playerName,
+      team: acc.team,
+      games: acc.games,
+    })
+    pv.season = season
+    out.push(pv)
+  }
+  return out
+}
+
+/** Defensive season rows from nflverse player_stats_def_season_*.csv */
+export function buildDefenderValuesFromSeasonRows(
+  rows: Array<Record<string, string>>,
+  season: number,
+): PlayerValue[] {
+  const out: PlayerValue[] = []
+
+  for (const row of rows) {
+    const pos = (row.position || '').toUpperCase()
+    const mapped = mapDefPosition(pos)
+    if (!mapped) continue
+
+    const playerId = row.player_id
+    const playerName = row.player_display_name || row.player_name || playerId
+    const team = row.team || row.recent_team
+    const games = Number(row.games) || 0
+    const tackles = Number(row.def_tackles) || 0
+    const sacks = Number(row.def_sacks) || 0
+    const ints = Number(row.def_interceptions) || 0
+
+    if (!playerId || !team || games < 6) continue
+    // Minimum-usage gate: skip near-empty seasons
+    if (tackles < 15 && sacks < 2 && ints < 1) continue
+
+    const pv = valueDefender({
+      playerId,
+      playerName,
+      team,
+      position: mapped,
+      games,
+      tackles,
+      sacks,
+      interceptions: ints,
+    })
+    pv.season = season
+    out.push(pv)
   }
 
   return out

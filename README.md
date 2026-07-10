@@ -49,4 +49,11 @@ Without Supabase env vars, demo auth accepts any email + password (6+ chars) and
 - `src/lib/correlation.ts` — Pearson r + joint hit-rate (min 20 shared games)
 - `src/lib/stacks.ts` — `fetchStacks()` data layer (mirrors trades.ts)
 - `/stacks` — ranked by joint hit-rate; free top 3 + premium blur gate
+- Cross-model badge when the stack's latest shared game has ≥2★ prediction
 - Lines shown are **illustrative averages**, not live pick'em odds
+
+## Backtest + how it works
+
+- `/backtest` — ATS win rate by star level, Brier, ROI-if-followed (−110)
+- `/how-it-works` — plain-language mechanism walkthrough
+- `npm test` — key-number star-rating regression tests

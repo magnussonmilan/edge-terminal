@@ -5,7 +5,7 @@
     2023,
     2024
   ],
-  "generatedAt": "2026-07-10T19:57:34.518Z",
+  "generatedAt": "2026-07-10T20:32:22.828Z",
   "notes": [
     "Score-based power ratings with formula injury differentials.",
     "Game factors at prediction time: rest days + primetime only (simplified subset).",
@@ -15,5 +15,5 @@
   "gameCount": 815,
   "predictionCount": 815,
   "injuryReportCount": 16747,
-  "playerValueCount": 2011
+  "playerValueCount": 5834
 }
