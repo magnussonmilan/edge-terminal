@@ -1,0 +1,16 @@
+{
+  "source": "nflverse/player_stats weekly",
+  "seasons": [
+    2022,
+    2023,
+    2024
+  ],
+  "generatedAt": "2026-07-10T20:15:55.264Z",
+  "minSampleSize": 20,
+  "stackCount": 120,
+  "notes": [
+    "Illustrative lines = rolling averages of each prop series — not live pick'em odds.",
+    "Equal-weight correlation across seasons; recency weighting is a labeled v2 item.",
+    "Pairs require ≥20 shared games."
+  ]
+}

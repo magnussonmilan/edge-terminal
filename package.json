@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "ingest:nfl": "tsx scripts/ingest-nflverse.ts"
+    "ingest:nfl": "tsx scripts/ingest-nflverse.ts",
+    "ingest:stacks": "tsx scripts/ingest-stack-finder.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.19",

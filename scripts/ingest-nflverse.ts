@@ -206,40 +206,7 @@ async function main() {
     }
   }
 
-  // Compact stacks: pick high-star games and invent correlated prop pairs
-  const playable = predictions
-    .filter((p) => p.starRating.playable && p.starRating.stars >= 1.5)
-    .sort((a, b) => b.starRating.stars - a.starRating.stars)
-    .slice(0, 24)
-
-  const stacks = playable.map((p, i) => {
-    const side = p.modelSpread >= 0 ? p.homeTeam : p.awayTeam
-    return {
-      id: `stack-${p.gameId}-${i}`,
-      gameId: p.gameId,
-      season: p.season,
-      week: p.week,
-      matchup: `${p.awayTeam} @ ${p.homeTeam}`,
-      legs: [
-        {
-          player: `${side} skill player A`,
-          prop: 'Anytime TD',
-          bookImplied: 0.42,
-          fairValue: 0.51,
-        },
-        {
-          player: `${side} skill player B`,
-          prop: 'Receiving yards over',
-          bookImplied: 0.48,
-          fairValue: 0.55,
-        },
-      ],
-      correlation: 0.35 + (i % 5) * 0.03,
-      combinedEdge: 0.06 + (i % 4) * 0.015,
-      highConfidenceGame: p.starRating.stars >= 2.0,
-      gameStars: p.starRating.stars,
-    }
-  })
+  // Compact stacks removed — Stack Finder uses scripts/ingest-stack-finder.ts
 
   await mkdir(OUT_DIR, { recursive: true })
 
@@ -307,7 +274,6 @@ async function main() {
     path.join(OUT_DIR, 'predictions.json'),
     JSON.stringify(predictionsOut),
   )
-  await writeFile(path.join(OUT_DIR, 'stacks.json'), JSON.stringify(stacks, null, 2))
   await writeFile(
     path.join(OUT_DIR, 'player-values.json'),
     JSON.stringify(

@@ -38,21 +38,15 @@ Without Supabase env vars, demo auth accepts any email + password (6+ chars) and
 - Feed lifecycle badges + status filter (open / watchlisted / placed)
 - Dev bankroll editor in feed filters
 
-## Power ratings + Stack Finder demo
+## Power ratings
 
-Independent NFL modules (do not alter Phase 1/2 trade paths):
+- `npm run ingest:nfl` — retrospective ratings/predictions → `src/data/nfl/`
+- `/predictions` — star-rated game cards vs historical closing lines
 
-- `src/lib/keyNumbers.ts` — key-number table + star ratings
-- `src/lib/powerRatings.ts` — weekly score-based rating updates + HFA
-- `src/lib/playerValues.ts` — formula player values + flat injury differential
-- `src/lib/predictions.ts` — predicted spread (ratings + rest + primetime)
-- `scripts/ingest-nflverse.ts` — retrospective 2022–2024 nflverse ingest → `src/data/nfl/`
-- `/predictions` — `GamePredictionCard` list sorted by stars (free: top 3)
-- `/stacks` — correlation stack cards; **Game ★** badge when the game is high-confidence
+## Stack Finder (correlation demo)
 
-```bash
-npm run ingest:nfl   # refresh fixtures from nflverse
-npm run dev
-```
-
-Honest demo copy: mechanism transparency vs historical closing lines — not a market-beating claim.
+- `npm run ingest:stacks` — nflverse weekly player logs → `correlation-stacks.json`
+- `src/lib/correlation.ts` — Pearson r + joint hit-rate (min 20 shared games)
+- `src/lib/stacks.ts` — `fetchStacks()` data layer (mirrors trades.ts)
+- `/stacks` — ranked by joint hit-rate; free top 3 + premium blur gate
+- Lines shown are **illustrative averages**, not live pick'em odds

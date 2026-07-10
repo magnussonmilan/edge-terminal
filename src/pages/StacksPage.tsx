@@ -1,31 +1,48 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
+  fetchStacks,
+  filterStacksByTeam,
   FREE_STACK_LIMIT,
-  getStacks,
-  listSeasons,
-  listWeeks,
-} from '@/lib/nflData'
+  listStackTeams,
+  sortByJointHitRate,
+  STACK_FINDER_META,
+} from '@/lib/stacks'
+import type { Stack } from '@/types/stack'
 import { StackCard } from '@/components/stack/StackCard'
+import { TradeCardSkeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useTradeStore } from '@/store/useTradeStore'
-import { cn } from '@/lib/utils'
 
 export function StacksPage() {
-  const seasons = listSeasons()
-  const [season, setSeason] = useState(seasons[0] ?? 2024)
-  const weeks = listWeeks(season)
-  const [week, setWeek] = useState<number | 'all'>('all')
+  const [stacks, setStacks] = useState<Stack[]>([])
+  const [loading, setLoading] = useState(true)
+  const [team, setTeam] = useState<string | 'all'>('all')
   const tier = useTradeStore((s) => s.user.tier)
   const setTier = useTradeStore((s) => s.setTier)
   const isPremium = tier === 'premium'
 
-  const stacks = useMemo(
-    () => getStacks(season, week === 'all' ? undefined : week),
-    [season, week],
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    void fetchStacks().then((data) => {
+      if (!cancelled) {
+        setStacks(sortByJointHitRate(data))
+        setLoading(false)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const teams = useMemo(() => listStackTeams(stacks), [stacks])
+  const filtered = useMemo(
+    () => sortByJointHitRate(filterStacksByTeam(stacks, team)),
+    [stacks, team],
   )
-  const visible = isPremium ? stacks : stacks.slice(0, FREE_STACK_LIMIT)
-  const locked = !isPremium ? stacks.slice(FREE_STACK_LIMIT) : []
+  const visible = isPremium ? filtered : filtered.slice(0, FREE_STACK_LIMIT)
+  const locked = !isPremium ? filtered.slice(FREE_STACK_LIMIT) : []
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
@@ -34,106 +51,83 @@ export function StacksPage() {
           Stack Finder
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-slate-500">
-          Correlation stacks for prop pairs. Independent from power ratings — when a
-          stack&apos;s game also has a high-confidence prediction, we show a game-star
-          badge.
+          Correlated NFL prop pairs from real nflverse game logs (
+          {STACK_FINDER_META.seasons.join('–')}). Flat-payout pick&apos;em apps price
+          legs independently — these pairs move together. Sorted by joint hit-rate.
         </p>
       </header>
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
-          Season
-        </span>
-        {seasons.map((s) => (
-          <Chip
-            key={s}
-            active={season === s}
-            label={String(s)}
-            onClick={() => {
-              setSeason(s)
-              setWeek('all')
-            }}
-          />
-        ))}
-      </div>
-
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
-          Week
+          Team
         </span>
-        <Chip active={week === 'all'} label="All" onClick={() => setWeek('all')} />
-        {weeks.map((w) => (
-          <Chip
-            key={w}
-            active={week === w}
-            label={`W${w}`}
-            onClick={() => setWeek(w)}
-          />
-        ))}
+        <select
+          className="h-9 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-800"
+          value={team}
+          onChange={(e) => setTeam(e.target.value)}
+        >
+          <option value="all">All teams</option>
+          {teams.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+        <span className="text-xs text-slate-400">
+          Min {STACK_FINDER_META.minSampleSize} shared games · illustrative averages, not
+          live lines
+        </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {visible.map((s) => (
-          <StackCard key={s.id} stack={s} />
-        ))}
-      </div>
-
-      {locked.length > 0 && (
-        <div className="relative mt-4 overflow-hidden rounded-lg border border-slate-200">
-          <div
-            className="pointer-events-none grid grid-cols-1 gap-4 p-4 opacity-40 blur-[2px] sm:grid-cols-2 lg:grid-cols-3"
-            aria-hidden
-          >
-            {locked.slice(0, 3).map((s) => (
-              <StackCard key={s.id} stack={s} />
+      {loading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <TradeCardSkeleton key={i} />
+          ))}
+        </div>
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {visible.map((s) => (
+              <StackCard key={s.pairKey} stack={s} />
             ))}
           </div>
-          <div className="absolute inset-0 flex items-center justify-center bg-white/60 p-6">
-            <div className="max-w-sm rounded-lg border border-amber-200 bg-white p-5 text-center shadow-sm">
-              <Badge className="bg-amber-100 text-amber-800 normal-case">
-                Upgrade to Premium — $29.99/mo
-              </Badge>
-              <p className="mt-3 text-sm text-slate-600">
-                Free tier shows {FREE_STACK_LIMIT} stacks. Unlock the rest.
-              </p>
-              <Button className="mt-4 w-full" onClick={() => setTier('premium')}>
-                Upgrade to Premium — $29.99/mo
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {stacks.length === 0 && (
-        <p className="rounded-lg border border-dashed border-slate-300 bg-white px-6 py-16 text-center text-sm text-slate-600">
-          No stacks for this filter. High-star games seed the demo stack list.
-        </p>
+          {locked.length > 0 && (
+            <div className="relative mt-4 overflow-hidden rounded-lg border border-slate-200">
+              <div
+                className="pointer-events-none grid grid-cols-1 gap-4 p-4 opacity-40 blur-[2px] sm:grid-cols-2 lg:grid-cols-3"
+                aria-hidden
+              >
+                {locked.slice(0, 3).map((s) => (
+                  <StackCard key={s.pairKey} stack={s} />
+                ))}
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center bg-white/60 p-6">
+                <div className="max-w-sm rounded-lg border border-amber-200 bg-white p-5 text-center shadow-sm">
+                  <Badge className="bg-amber-100 text-amber-800 normal-case">
+                    Upgrade to Premium — $29.99/mo
+                  </Badge>
+                  <p className="mt-3 text-sm text-slate-600">
+                    Free tier shows the top {FREE_STACK_LIMIT} stacks by joint hit-rate.
+                    Unlock the full ranked list.
+                  </p>
+                  <Button className="mt-4 w-full" onClick={() => setTier('premium')}>
+                    Upgrade to Premium — $29.99/mo
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {filtered.length === 0 && (
+            <p className="rounded-lg border border-dashed border-slate-300 bg-white px-6 py-16 text-center text-sm text-slate-600">
+              No stacks for this team with at least {STACK_FINDER_META.minSampleSize}{' '}
+              shared games.
+            </p>
+          )}
+        </>
       )}
     </div>
-  )
-}
-
-function Chip({
-  active,
-  label,
-  onClick,
-}: {
-  active: boolean
-  label: string
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'rounded-md border px-2.5 py-1 text-xs font-medium transition-colors',
-        active
-          ? 'border-primary bg-primary text-white'
-          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50',
-      )}
-    >
-      {label}
-    </button>
   )
 }
