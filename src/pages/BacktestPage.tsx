@@ -12,7 +12,7 @@ import {
   YAxis,
 } from 'recharts'
 import { Link } from 'react-router-dom'
-import { ALL_PREDICTIONS, listSeasons } from '@/lib/nflData'
+import { ALL_PREDICTIONS, CALIBRATED_V3, listSeasons } from '@/lib/nflData'
 import {
   BREAKEVEN_WIN_RATE,
   computeBacktest,
@@ -164,6 +164,12 @@ export function BacktestPage() {
   const trainLabel = `Train (${SPLIT.trainSeasons[0]}–${SPLIT.trainSeasons[SPLIT.trainSeasons.length - 1]})`
   const valLabel = `Last season (${SPLIT.validationSeasons.join(', ')})`
 
+  const v3 = CALIBRATED_V3
+  const v3Ready = v3.generatedAt !== 'pending'
+  const v3Split = v3.actualSplit
+  const v3TrainLabel = `${v3Split.trainSeasons[0]}–${v3Split.trainSeasons[v3Split.trainSeasons.length - 1]}`
+  const v3ValLabel = v3Split.validationSeasons.join(', ')
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
       <header className="mb-6">
@@ -179,6 +185,77 @@ export function BacktestPage() {
           holdout year. Past performance does not guarantee future results.
         </p>
       </header>
+
+      <section className="mb-8 rounded-lg border border-slate-200 bg-white p-5">
+        <h2 className="text-sm font-semibold text-slate-900">
+          Model architecture comparison
+        </h2>
+        <p className="mt-1 text-xs text-slate-500">
+          v2 = power rating + key numbers. v3-independent = QB-Elo + weighted
+          EPA (no market blend). v3-market-blended = same ratings with ongoing
+          market reversion — a different question than beating the line cold.
+          Holdout split for v3: train {v3TrainLabel} / validate {v3ValLabel}.
+        </p>
+        {!v3Ready ? (
+          <p className="mt-3 text-sm text-slate-600">
+            Run <code className="rounded bg-slate-100 px-1">npm run calibrate:v3</code>{' '}
+            to populate v3 numbers.
+          </p>
+        ) : (
+          <>
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full min-w-[36rem] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+                    <th className="py-2 pr-3 font-medium">Variant</th>
+                    <th className="py-2 pr-3 font-medium">Train ATS</th>
+                    <th className="py-2 pr-3 font-medium">Holdout ATS</th>
+                    <th className="py-2 font-medium">vs v2 holdout</th>
+                  </tr>
+                </thead>
+                <tbody className="tabular-nums text-slate-800">
+                  <CompareRow
+                    name="v2 (power + stars)"
+                    trainWr={v3.v2.trainWinRate}
+                    trainN={v3.v2.trainGames}
+                    valWr={v3.v2.validationWinRate}
+                    valN={v3.v2.validationGames}
+                    vsV2="baseline"
+                  />
+                  <CompareRow
+                    name="v3 independent"
+                    trainWr={v3.v3Independent.trainWinRate}
+                    trainN={v3.v3Independent.trainGames}
+                    valWr={v3.v3Independent.validationWinRate}
+                    valN={v3.v3Independent.validationGames}
+                    vsV2={
+                      v3.v3Independent.beatsV2Holdout ? 'beats' : 'does not beat'
+                    }
+                  />
+                  <CompareRow
+                    name="v3 market-blended"
+                    trainWr={v3.v3MarketBlended.trainWinRate}
+                    trainN={v3.v3MarketBlended.trainGames}
+                    valWr={v3.v3MarketBlended.validationWinRate}
+                    valN={v3.v3MarketBlended.validationGames}
+                    vsV2={
+                      v3.v3MarketBlended.beatsV2Holdout
+                        ? 'beats'
+                        : 'does not beat'
+                    }
+                  />
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-3 text-sm text-slate-700">{v3.verdict}</p>
+            <p className="mt-2 text-xs text-slate-500">
+              Market blend weight (train-fit): {v3.modelWeight.toFixed(2)}.
+              Breakeven at −110 is {(BREAKEVEN_WIN_RATE * 100).toFixed(1)}%.{' '}
+              {v3Split.note}
+            </p>
+          </>
+        )}
+      </section>
 
       {CROSS && (
         <div className="mb-6 rounded-lg border border-slate-200 bg-white p-4">
@@ -630,6 +707,45 @@ function buildDiagnosticClosing(
   )
 
   return parts.join(' ')
+}
+
+function CompareRow({
+  name,
+  trainWr,
+  trainN,
+  valWr,
+  valN,
+  vsV2,
+}: {
+  name: string
+  trainWr: number
+  trainN: number
+  valWr: number
+  valN: number
+  vsV2: 'baseline' | 'beats' | 'does not beat'
+}) {
+  const vsLabel =
+    vsV2 === 'baseline' ? '—' : vsV2 === 'beats' ? 'beats v2' : 'does not beat v2'
+  const vsTone =
+    vsV2 === 'beats'
+      ? 'text-emerald-700'
+      : vsV2 === 'does not beat'
+        ? 'text-slate-600'
+        : 'text-slate-400'
+  return (
+    <tr className="border-b border-slate-100">
+      <td className="py-2.5 pr-3 font-medium text-slate-900">{name}</td>
+      <td className="py-2.5 pr-3">
+        {(trainWr * 100).toFixed(1)}%
+        <span className="text-slate-400"> · n={trainN}</span>
+      </td>
+      <td className="py-2.5 pr-3">
+        {(valWr * 100).toFixed(1)}%
+        <span className="text-slate-400"> · n={valN}</span>
+      </td>
+      <td className={cn('py-2.5', vsTone)}>{vsLabel}</td>
+    </tr>
+  )
 }
 
 function SplitCard({

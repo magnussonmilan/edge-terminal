@@ -1,6 +1,10 @@
 import type { GamePrediction } from '@/lib/predictions'
+import type { V3GamePrediction } from '@/lib/predictionsV3'
 import type { GameWeather } from '@/lib/weather'
 import predictionsData from '@/data/nfl/predictions.json'
+import predictionsV3Independent from '@/data/nfl/predictions-v3-independent.json'
+import predictionsV3Market from '@/data/nfl/predictions-v3-market.json'
+import calibratedV3 from '@/data/nfl/calibrated-v3.json'
 import ratingsData from '@/data/nfl/ratings.json'
 import metaData from '@/data/nfl/meta.json'
 import weatherData from '@/data/nfl/current-week-weather.json'
@@ -15,6 +19,41 @@ export const NFL_META = metaData as {
 }
 
 export const ALL_PREDICTIONS = predictionsData as GamePrediction[]
+
+/** v3 fully independent (QB-Elo + WEPA) — do not conflate with market blend. */
+export const PREDICTIONS_V3_INDEPENDENT =
+  predictionsV3Independent as V3GamePrediction[]
+
+/** v3 with ongoing market reversion — answers a different question than independent. */
+export const PREDICTIONS_V3_MARKET = predictionsV3Market as V3GamePrediction[]
+
+export type V3CalibrationReport = {
+  generatedAt: string
+  methodology: string
+  actualSplit: {
+    trainSeasons: number[]
+    validationSeasons: number[]
+    note: string
+  }
+  modelWeight: number
+  coverCoeffs: { intercept: number; slope: number }
+  verdict: string
+  v2: ModelSummary
+  v3Independent: ModelSummary
+  v3MarketBlended: ModelSummary
+}
+
+type ModelSummary = {
+  trainWinRate: number
+  trainGames: number
+  validationWinRate: number
+  validationGames: number
+  allWinRate: number
+  allGames: number
+  beatsV2Holdout?: boolean
+}
+
+export const CALIBRATED_V3 = calibratedV3 as V3CalibrationReport
 
 type WeatherFile = {
   games?: Array<{

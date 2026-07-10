@@ -1,0 +1,82 @@
+{
+  "generatedAt": "2026-07-10T23:54:16.723Z",
+  "methodology": "v3 QB-Elo + weekly-EPA team signal + optional market blend. Independent and blended reported separately. IP: independent reimplementation from public methodology descriptions — not a port of nfelo source.",
+  "requestedSplit": {
+    "train": "2009–2022",
+    "validation": "2023–2024"
+  },
+  "actualSplit": {
+    "trainSeasons": [
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022
+    ],
+    "validationSeasons": [
+      2023,
+      2024
+    ],
+    "note": "Fixtures begin 2016 where spread_line coverage is complete (same constraint as v2). 2009–2015 not fabricated."
+  },
+  "srsPrior": {
+    "method": "prior-season-decay",
+    "note": "No free historical win-total odds — SRS stretch goal blocked on data."
+  },
+  "wepaNote": "Team WEPA approximated from weekly player EPA sums; play-level weightPlay() used when PBP rows are supplied (unit tests).",
+  "modelWeight": 0.15,
+  "coverCoeffs": {
+    "intercept": 0.0019028458326004753,
+    "slope": -0.0814061154310342
+  },
+  "replacementElo": 1450,
+  "breakeven": 0.524,
+  "v2": {
+    "trainWinRate": 0.4814143245693563,
+    "trainGames": 1103,
+    "trainBrier": 0.22933901634464976,
+    "trainRoi": -0.08093628945850163,
+    "validationWinRate": 0.49262536873156343,
+    "validationGames": 339,
+    "validationBrier": 0.22567972484937446,
+    "validationRoi": -0.0595333869670153,
+    "allWinRate": 0.4840499306518724,
+    "allGames": 1442,
+    "allBrier": 0.22847875294874234,
+    "allRoi": -0.07590467784642545,
+    "beatsV2Holdout": false
+  },
+  "v3Independent": {
+    "trainWinRate": 0.49403508771929827,
+    "trainGames": 1425,
+    "trainBrier": 0.2398436466290678,
+    "trainRoi": -0.056842105263157895,
+    "validationWinRate": 0.4967462039045553,
+    "validationGames": 461,
+    "validationBrier": 0.23665663635302708,
+    "validationRoi": -0.051666338000394385,
+    "allWinRate": 0.49469777306468715,
+    "allGames": 1886,
+    "allBrier": 0.2390646372243727,
+    "allRoi": -0.05557697869468816,
+    "beatsV2Holdout": false
+  },
+  "v3MarketBlended": {
+    "trainWinRate": 0.4437869822485207,
+    "trainGames": 338,
+    "trainBrier": 0.2107130190678101,
+    "trainRoi": -0.15277030661646052,
+    "validationWinRate": 0.5235294117647059,
+    "validationGames": 170,
+    "validationBrier": 0.19367598799388697,
+    "validationRoi": -0.0005347593582887852,
+    "allWinRate": 0.4704724409448819,
+    "allGames": 508,
+    "allBrier": 0.20501165040133978,
+    "allRoi": -0.10182534001431644,
+    "beatsV2Holdout": true
+  },
+  "verdict": "Holdout: market-blended edges v2 on this sample without a clean independent win — report both numbers separately."
+}

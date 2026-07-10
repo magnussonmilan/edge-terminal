@@ -14,6 +14,7 @@
     "ingest:weather": "tsx scripts/ingest-weather.ts",
     "ingest:odds": "tsx scripts/ingest-odds.ts",
     "calibrate": "tsx scripts/calibrate-model.ts",
+    "calibrate:v3": "tsx scripts/calibrate-v3-model.ts",
     "test": "vitest run"
   },
   "dependencies": {
