@@ -4,6 +4,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  ErrorBar,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
@@ -15,6 +16,8 @@ import { ALL_PREDICTIONS, listSeasons } from '@/lib/nflData'
 import {
   BREAKEVEN_WIN_RATE,
   computeBacktest,
+  computeStarSignalDiagnostics,
+  type StarLevelResultWithCI,
 } from '@/lib/backtest'
 import { DEFAULT_SPLIT, scoreSeasons } from '@/lib/calibration'
 import { cn } from '@/lib/utils'
@@ -52,6 +55,35 @@ type CalibratedFile = {
 const LOG = calibrationLog as LogEntry[]
 const CALIBRATED = calibratedCoeffs as CalibratedFile
 
+function toStarChartRows(breakdown: StarLevelResultWithCI[]) {
+  return breakdown.map((row) => {
+    const winRate = Math.round(row.winRate * 1000) / 10
+    const low = Math.round(row.wilsonLow * 1000) / 10
+    const high = Math.round(row.wilsonHigh * 1000) / 10
+    return {
+      label: `${row.starLevel}★`,
+      winRate,
+      games: row.gamesCount,
+      wilsonLow: low,
+      wilsonHigh: high,
+      // Asymmetric ErrorBar offsets relative to winRate
+      error: [Math.max(0, winRate - low), Math.max(0, high - winRate)] as [
+        number,
+        number,
+      ],
+    }
+  })
+}
+
+function resolveSeasons(
+  season: number | 'all' | 'train' | 'validation',
+): number[] | 'all' {
+  if (season === 'train') return DEFAULT_SPLIT.trainSeasons
+  if (season === 'validation') return DEFAULT_SPLIT.validationSeasons
+  if (season === 'all') return 'all'
+  return [season]
+}
+
 export function BacktestPage() {
   const seasons = listSeasons()
   const [season, setSeason] = useState<number | 'all' | 'train' | 'validation'>(
@@ -77,15 +109,27 @@ export function BacktestPage() {
     [],
   )
 
+  const diagnostics = useMemo(() => {
+    const seasonsScope = resolveSeasons(season)
+    return computeStarSignalDiagnostics(
+      ALL_PREDICTIONS,
+      seasonsScope,
+      summary.starLevelBreakdown,
+    )
+  }, [season, summary.starLevelBreakdown])
+
   const winPct = summary.overallWinRate * 100
   const roiPct = summary.roiIfFollowed * 100
   const holdoutBelowBreakEven = valSummary.overallWinRate < BREAKEVEN_WIN_RATE
 
-  const starChart = summary.starLevelBreakdown.map((row) => ({
-    label: `${row.starLevel}★`,
-    winRate: Math.round(row.winRate * 1000) / 10,
-    games: row.gamesCount,
-  }))
+  const starChart = toStarChartRows(summary.starLevelBreakdown)
+  const earlyChart = toStarChartRows(diagnostics.early.breakdown)
+  const lateChart = toStarChartRows(diagnostics.late.breakdown)
+
+  const diagnosticClosing = useMemo(
+    () => buildDiagnosticClosing(diagnostics, summary.totalPlayableGames),
+    [diagnostics, summary.totalPlayableGames],
+  )
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
@@ -211,47 +255,79 @@ export function BacktestPage() {
           Win rate by star level
         </h2>
         <p className="mt-1 text-xs text-slate-500">
-          Direct test of whether more stars mean a better signal (current view).
+          Whiskers are 95% Wilson score intervals. Overlapping bars mean the
+          buckets are not distinguishable from noise at this sample size.
         </p>
-        <div className="mt-4 h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={starChart} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
-              <XAxis dataKey="label" tick={{ fill: '#64748b', fontSize: 12 }} />
-              <YAxis domain={[0, 100]} tick={{ fill: '#64748b', fontSize: 11 }} unit="%" />
-              <Tooltip
-                formatter={(value, _n, item) => {
-                  const games = (item?.payload as { games?: number } | undefined)?.games
-                  return [`${value}% (${games ?? 0} games)`, 'Win rate']
-                }}
-              />
-              <ReferenceLine
-                y={BREAKEVEN_WIN_RATE * 100}
-                stroke="#f59e0b"
-                strokeDasharray="4 4"
-                label={{
-                  value: '52.4%',
-                  position: 'insideTopRight',
-                  fill: '#f59e0b',
-                  fontSize: 11,
-                }}
-              />
-              <Bar dataKey="winRate" radius={[4, 4, 0, 0]} maxBarSize={36}>
-                {starChart.map((row) => (
-                  <Cell
-                    key={row.label}
-                    fill={
-                      row.games === 0
-                        ? '#cbd5e1'
-                        : row.winRate >= BREAKEVEN_WIN_RATE * 100
-                          ? '#10b981'
-                          : '#f59e0b'
-                    }
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+        <StarBarChart data={starChart} height={256} />
+        {diagnostics.adjacentOverlapRate >= 0.8 && (
+          <p className="mt-3 text-xs text-slate-600">
+            {(diagnostics.adjacentOverlapRate * 100).toFixed(0)}% of adjacent
+            star buckets have overlapping Wilson intervals in this view — the
+            inverted 0.5★ vs 3★ pattern is not statistically resolved.
+          </p>
+        )}
+      </section>
+
+      <section className="mt-8 rounded-lg border border-slate-200 bg-white p-5">
+        <h2 className="text-sm font-semibold text-slate-900">
+          Star-signal diagnostics
+        </h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Diagnosis only — no thresholds or coefficients were changed to make
+          the chart look better.
+        </p>
+
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <div className="rounded-md border border-slate-100 bg-slate-50 p-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Differential vs prediction error
+            </p>
+            <p className="mt-1 tabular-nums text-xl font-semibold text-slate-900">
+              r = {diagnostics.correlationError.correlation.toFixed(3)}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-600">
+              {interpretErrorCorrelation(diagnostics.correlationError.correlation)}{' '}
+              (n = {diagnostics.correlationError.n})
+            </p>
+          </div>
+          <div className="rounded-md border border-slate-100 bg-slate-50 p-3">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+              Differential vs ATS cover
+            </p>
+            <p className="mt-1 tabular-nums text-xl font-semibold text-slate-900">
+              r = {diagnostics.correlationAts.correlation.toFixed(3)}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-600">
+              {interpretAtsCorrelation(diagnostics.correlationAts.correlation)}{' '}
+              (n = {diagnostics.correlationAts.n})
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <div>
+            <h3 className="text-xs font-semibold text-slate-800">
+              Weeks 1–4 (early season)
+            </h3>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {diagnostics.early.totalGames} playable games — ratings least
+              converged
+            </p>
+            <StarBarChart data={earlyChart} height={200} compact />
+          </div>
+          <div>
+            <h3 className="text-xs font-semibold text-slate-800">
+              Weeks 5+ (later season)
+            </h3>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {diagnostics.late.totalGames} playable games — more rating history
+            </p>
+            <StarBarChart data={lateChart} height={200} compact />
+          </div>
+        </div>
+
+        <div className="mt-5 rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-sm leading-relaxed text-slate-700">
+          {diagnosticClosing}
         </div>
       </section>
 
@@ -336,6 +412,175 @@ export function BacktestPage() {
       </p>
     </div>
   )
+}
+
+type ChartRow = ReturnType<typeof toStarChartRows>[number]
+
+function StarBarChart({
+  data,
+  height,
+  compact,
+}: {
+  data: ChartRow[]
+  height: number
+  compact?: boolean
+}) {
+  return (
+    <div className="mt-3" style={{ height }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          data={data}
+          margin={{ top: 8, right: 8, left: compact ? -16 : -8, bottom: 0 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+          <XAxis
+            dataKey="label"
+            tick={{ fill: '#64748b', fontSize: compact ? 10 : 12 }}
+          />
+          <YAxis
+            domain={[0, 100]}
+            tick={{ fill: '#64748b', fontSize: 11 }}
+            unit="%"
+            width={compact ? 36 : 40}
+          />
+          <Tooltip
+            formatter={(value, _n, item) => {
+              const row = item?.payload as ChartRow | undefined
+              if (!row) return [`${value}%`, 'Win rate']
+              return [
+                `${row.winRate}% (${row.games} games) · 95% CI ${row.wilsonLow}–${row.wilsonHigh}%`,
+                'Win rate',
+              ]
+            }}
+          />
+          <ReferenceLine
+            y={BREAKEVEN_WIN_RATE * 100}
+            stroke="#f59e0b"
+            strokeDasharray="4 4"
+            label={
+              compact
+                ? undefined
+                : {
+                    value: '52.4%',
+                    position: 'insideTopRight',
+                    fill: '#f59e0b',
+                    fontSize: 11,
+                  }
+            }
+          />
+          <Bar dataKey="winRate" radius={[4, 4, 0, 0]} maxBarSize={compact ? 28 : 36}>
+            {data.map((row) => (
+              <Cell
+                key={row.label}
+                fill={
+                  row.games === 0
+                    ? '#cbd5e1'
+                    : row.winRate >= BREAKEVEN_WIN_RATE * 100
+                      ? '#10b981'
+                      : '#f59e0b'
+                }
+              />
+            ))}
+            <ErrorBar
+              dataKey="error"
+              width={4}
+              strokeWidth={1.25}
+              stroke="#334155"
+              direction="y"
+            />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+function interpretErrorCorrelation(r: number): string {
+  if (r > 0.15) {
+    return 'Positive: larger differentials associate with larger model error — stars may partly measure model noise, not edge.'
+  }
+  if (r > 0.05) {
+    return 'Weakly positive: a mild hint that bigger gaps from the line track noisier spreads, not a strong finding.'
+  }
+  if (r < -0.1) {
+    return 'Negative: larger differentials associate with smaller prediction error — the opposite of a noise story.'
+  }
+  return 'Near zero: differential size does not clearly track prediction error in this sample.'
+}
+
+function interpretAtsCorrelation(r: number): string {
+  if (r > 0.1) {
+    return 'Positive: larger differentials associate with more ATS covers — the direction a working confidence signal would show.'
+  }
+  if (r < -0.1) {
+    return 'Negative: larger differentials associate with fewer covers — confidence is pointing the wrong way.'
+  }
+  return 'Near zero: star/differential size is not predicting ATS outcomes in this sample.'
+}
+
+function monotonicScore(breakdown: StarLevelResultWithCI[]): number {
+  // Spearman-ish: count adjacent pairs where higher stars have higher WR
+  let good = 0
+  let pairs = 0
+  for (let i = 0; i < breakdown.length - 1; i++) {
+    const a = breakdown[i]
+    const b = breakdown[i + 1]
+    if (a.gamesCount < 5 || b.gamesCount < 5) continue
+    pairs += 1
+    if (b.winRate >= a.winRate - 0.02) good += 1
+  }
+  return pairs === 0 ? 0.5 : good / pairs
+}
+
+function buildDiagnosticClosing(
+  d: ReturnType<typeof computeStarSignalDiagnostics>,
+  totalGames: number,
+): string {
+  const parts: string[] = []
+
+  if (d.adjacentOverlapRate >= 0.8) {
+    parts.push(
+      `Wilson intervals overlap for ${(d.adjacentOverlapRate * 100).toFixed(0)}% of adjacent star buckets (${totalGames} playable games split six ways). Sample size is too small to distinguish these buckets from noise — the inverted low-star vs high-star pattern in a single season is not a resolved finding.`,
+    )
+  } else {
+    parts.push(
+      'Some adjacent star buckets have non-overlapping Wilson intervals, so bucket differences may be real — still treat one-season patterns cautiously.',
+    )
+  }
+
+  const err = d.correlationError.correlation
+  const ats = d.correlationAts.correlation
+  if (err > 0.1 && Math.abs(ats) < 0.1) {
+    parts.push(
+      `Differential↔error correlation is weakly positive (r=${err.toFixed(2)}) while differential↔ATS is near zero (r=${ats.toFixed(2)}) — consistent with stars partly reflecting model/market disagreement that is not informative, but the effect is small.`,
+    )
+  } else if (Math.abs(ats) < 0.1 && Math.abs(err) < 0.1) {
+    parts.push(
+      `Neither differential↔error (r=${err.toFixed(2)}) nor differential↔ATS (r=${ats.toFixed(2)}) shows a meaningful relationship — the star ladder is not tracking outcomes or error in a clear direction here.`,
+    )
+  } else {
+    parts.push(
+      `Correlations: differential↔error r=${err.toFixed(2)}, differential↔ATS r=${ats.toFixed(2)}.`,
+    )
+  }
+
+  const earlyMono = monotonicScore(d.early.breakdown)
+  const lateMono = monotonicScore(d.late.breakdown)
+  if (lateMono > earlyMono + 0.25 && lateMono >= 0.6) {
+    parts.push(
+      `Weeks 5+ look more orderly than weeks 1–4 — early-season rating noise is a plausible contributor; discounting early-week confidence would be a reasonable next experiment.`,
+    )
+  } else {
+    parts.push(
+      `Early (weeks 1–4, n=${d.early.totalGames}) and later (weeks 5+, n=${d.late.totalGames}) slices are both scrambled — early-season rating noise alone does not explain the pattern.`,
+    )
+  }
+
+  parts.push(
+    'Worth trying next only after more seasons of data (or a pre-registered larger sample): not retuning star thresholds on this chart. If anything, suppress or down-weight confidence until ratings have more games — but that is a hypothesis to test, not a fix justified by this sample.',
+  )
+
+  return parts.join(' ')
 }
 
 function SplitCard({

@@ -3,6 +3,7 @@
  * Measure what's already there — do not retune the underlying models here.
  */
 
+import { pearsonCorrelation } from './correlation'
 import type { GamePrediction } from './predictions'
 
 export interface StarLevelResult {
@@ -12,13 +13,83 @@ export interface StarLevelResult {
   winRate: number
 }
 
+export interface StarLevelResultWithCI extends StarLevelResult {
+  wilsonLow: number
+  wilsonHigh: number
+}
+
 export interface BacktestSummary {
   season: number | 'all'
   totalPlayableGames: number
-  starLevelBreakdown: StarLevelResult[]
+  starLevelBreakdown: StarLevelResultWithCI[]
   overallWinRate: number
   brierScore: number
   roiIfFollowed: number
+}
+
+export const STAR_LEVELS = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0] as const
+
+/**
+ * Wilson score interval for a binomial proportion — better than normal
+ * approximation at small n, which is what you have per star bucket.
+ */
+export function wilsonInterval(
+  wins: number,
+  n: number,
+  z = 1.96,
+): { low: number; high: number } {
+  if (n <= 0) return { low: 0, high: 0 }
+  const p = wins / n
+  const z2 = z * z
+  const denom = 1 + z2 / n
+  const center = p + z2 / (2 * n)
+  const margin = z * Math.sqrt((p * (1 - p) + z2 / (4 * n)) / n)
+  return {
+    low: Math.max(0, (center - margin) / denom),
+    high: Math.min(1, (center + margin) / denom),
+  }
+}
+
+function withWilson(row: StarLevelResult): StarLevelResultWithCI {
+  const { low, high } = wilsonInterval(row.winsAgainstSpread, row.gamesCount)
+  return { ...row, wilsonLow: low, wilsonHigh: high }
+}
+
+export function isPlayableSettled(p: GamePrediction): boolean {
+  return (
+    p.postedSpreadIsHistorical &&
+    p.postedSpread != null &&
+    p.starRating.playable &&
+    p.homeScore != null &&
+    p.awayScore != null
+  )
+}
+
+export function buildStarLevelBreakdown(
+  predictions: GamePrediction[],
+): StarLevelResultWithCI[] {
+  return STAR_LEVELS.map((starLevel) => {
+    const games = predictions.filter((p) => p.starRating.stars === starLevel)
+    let wins = 0
+    for (const g of games) {
+      if (modelCovered(g) === true) wins += 1
+    }
+    return withWilson({
+      starLevel,
+      gamesCount: games.length,
+      winsAgainstSpread: wins,
+      winRate: games.length > 0 ? wins / games.length : 0,
+    })
+  })
+}
+
+/** True when two adjacent buckets' Wilson intervals overlap. */
+export function adjacentIntervalsOverlap(
+  a: StarLevelResultWithCI,
+  b: StarLevelResultWithCI,
+): boolean {
+  if (a.gamesCount === 0 || b.gamesCount === 0) return true
+  return a.wilsonLow <= b.wilsonHigh && b.wilsonLow <= a.wilsonHigh
 }
 
 /** ~3-point favorite ≈ 60% win probability (NFL-scale logistic anchor). */
@@ -64,20 +135,7 @@ export function computeBacktest(
     return true
   })
 
-  const starLevels = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0]
-  const starLevelBreakdown: StarLevelResult[] = starLevels.map((starLevel) => {
-    const games = scoped.filter((p) => p.starRating.stars === starLevel)
-    let wins = 0
-    for (const g of games) {
-      if (modelCovered(g) === true) wins += 1
-    }
-    return {
-      starLevel,
-      gamesCount: games.length,
-      winsAgainstSpread: wins,
-      winRate: games.length > 0 ? wins / games.length : 0,
-    }
-  })
+  const starLevelBreakdown = buildStarLevelBreakdown(scoped)
 
   let wins = 0
   let brierSum = 0
@@ -111,3 +169,112 @@ export function computeBacktest(
 
 /** Break-even win rate at standard -110 vig. */
 export const BREAKEVEN_WIN_RATE = 0.524
+
+function filterPlayable(
+  predictions: GamePrediction[],
+  seasons: number[] | 'all',
+  weekMin?: number,
+  weekMax?: number,
+): GamePrediction[] {
+  const seasonSet = seasons === 'all' ? null : new Set(seasons)
+  return predictions.filter((p) => {
+    if (!isPlayableSettled(p)) return false
+    if (seasonSet && !seasonSet.has(p.season)) return false
+    if (weekMin != null && p.week < weekMin) return false
+    if (weekMax != null && p.week > weekMax) return false
+    return true
+  })
+}
+
+/**
+ * For each playable game, pair differentialPct with |modelSpread − actualMargin|.
+ * Positive r: bigger gap from the line ↔ larger model error (stars may track noise).
+ */
+export function differentialVsErrorCorrelation(
+  predictions: GamePrediction[],
+  seasons: number[] | 'all' = 'all',
+): { correlation: number; n: number } {
+  const scoped = filterPlayable(predictions, seasons)
+  const diffs: number[] = []
+  const errors: number[] = []
+  for (const p of scoped) {
+    const actualMargin = (p.homeScore ?? 0) - (p.awayScore ?? 0)
+    diffs.push(p.starRating.differentialPct)
+    errors.push(Math.abs(p.modelSpread - actualMargin))
+  }
+  return {
+    correlation: pearsonCorrelation(diffs, errors),
+    n: diffs.length,
+  }
+}
+
+/**
+ * Point-biserial via Pearson: differentialPct vs ATS win (1/0).
+ * Positive r would mean larger differentials associate with more covers.
+ */
+export function differentialVsAtsCorrelation(
+  predictions: GamePrediction[],
+  seasons: number[] | 'all' = 'all',
+): { correlation: number; n: number } {
+  const scoped = filterPlayable(predictions, seasons)
+  const diffs: number[] = []
+  const outcomes: number[] = []
+  for (const p of scoped) {
+    const covered = modelCovered(p)
+    if (covered == null) continue
+    diffs.push(p.starRating.differentialPct)
+    outcomes.push(covered ? 1 : 0)
+  }
+  return {
+    correlation: pearsonCorrelation(diffs, outcomes),
+    n: diffs.length,
+  }
+}
+
+export function computeStarBreakdownByWeekRange(
+  predictions: GamePrediction[],
+  seasons: number[] | 'all',
+  weekMin: number,
+  weekMax: number,
+): { breakdown: StarLevelResultWithCI[]; totalGames: number } {
+  const scoped = filterPlayable(predictions, seasons, weekMin, weekMax)
+  return {
+    breakdown: buildStarLevelBreakdown(scoped),
+    totalGames: scoped.length,
+  }
+}
+
+export interface StarSignalDiagnostics {
+  seasons: number[] | 'all'
+  correlationError: { correlation: number; n: number }
+  correlationAts: { correlation: number; n: number }
+  early: { breakdown: StarLevelResultWithCI[]; totalGames: number }
+  late: { breakdown: StarLevelResultWithCI[]; totalGames: number }
+  /** Fraction of adjacent star-bucket pairs whose Wilson CIs overlap (current view). */
+  adjacentOverlapRate: number
+}
+
+export function computeStarSignalDiagnostics(
+  predictions: GamePrediction[],
+  seasons: number[] | 'all',
+  fullBreakdown: StarLevelResultWithCI[],
+): StarSignalDiagnostics {
+  let overlapPairs = 0
+  let pairCount = 0
+  for (let i = 0; i < fullBreakdown.length - 1; i++) {
+    const a = fullBreakdown[i]
+    const b = fullBreakdown[i + 1]
+    if (a.gamesCount === 0 && b.gamesCount === 0) continue
+    pairCount += 1
+    if (adjacentIntervalsOverlap(a, b)) overlapPairs += 1
+  }
+
+  return {
+    seasons,
+    correlationError: differentialVsErrorCorrelation(predictions, seasons),
+    correlationAts: differentialVsAtsCorrelation(predictions, seasons),
+    early: computeStarBreakdownByWeekRange(predictions, seasons, 1, 4),
+    late: computeStarBreakdownByWeekRange(predictions, seasons, 5, 22),
+    adjacentOverlapRate: pairCount > 0 ? overlapPairs / pairCount : 1,
+  }
+}
