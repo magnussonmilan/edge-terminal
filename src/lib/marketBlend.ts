@@ -15,6 +15,9 @@ export const DEFAULT_MODEL_WEIGHT = 0.35
 /**
  * Blend independent model spread with posted market spread.
  * modelWeight ∈ [0,1]: 1 = fully independent, 0 = pure market.
+ *
+ * Weight may be a global constant (fitModelWeight) or a per-game dynamic
+ * value from marketRegression.matchupModelWeight — same blend formula either way.
  */
 export function blendWithMarket(
   modelSpread: number,

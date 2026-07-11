@@ -1,0 +1,336 @@
+{
+  "generatedAt": "2026-07-11T00:43:23.279Z",
+  "source": "Inspired by nfelo \"Using Market Regression to Improve Prediction Accuracy in the NFL\" (2020-11-08) — independent implementation from published description.",
+  "fitted": {
+    "halfLifeGames": 8,
+    "normalizer": 4,
+    "coldStartWeight": 0.15
+  },
+  "staticModelWeight": 0.15,
+  "log": [
+    {
+      "halfLifeGames": 4,
+      "normalizer": 3,
+      "trainAts": 0.4885186852769023,
+      "trainBrier": 0.21026397735123217,
+      "validationAts": 0.48546511627906974,
+      "validationBrier": 0.20359547231114947,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 4,
+      "normalizer": 4,
+      "trainAts": 0.49122017109410177,
+      "trainBrier": 0.21037768050958044,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.20384467195931405,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 4,
+      "normalizer": 6,
+      "trainAts": 0.4907699234579018,
+      "trainBrier": 0.21059319976789928,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.20420843309760114,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 4,
+      "normalizer": 8,
+      "trainAts": 0.49122017109410177,
+      "trainBrier": 0.21071697924636323,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.20442624214294802,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 4,
+      "normalizer": 10,
+      "trainAts": 0.48986942818550205,
+      "trainBrier": 0.2108191782707702,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.2045685261967324,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 4,
+      "normalizer": 12,
+      "trainAts": 0.48986942818550205,
+      "trainBrier": 0.21088740329789715,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.2046682373225204,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 6,
+      "normalizer": 3,
+      "trainAts": 0.49122017109410177,
+      "trainBrier": 0.21031821702673564,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.2034358908583572,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 6,
+      "normalizer": 4,
+      "trainAts": 0.49122017109410177,
+      "trainBrier": 0.21044257067553504,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.2037635996528523,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 6,
+      "normalizer": 6,
+      "trainAts": 0.4907699234579018,
+      "trainBrier": 0.21063624906216835,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.20417187939032663,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 6,
+      "normalizer": 8,
+      "trainAts": 0.4907699234579018,
+      "trainBrier": 0.21076154197070354,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.20440560200879257,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 6,
+      "normalizer": 10,
+      "trainAts": 0.49031967582170194,
+      "trainBrier": 0.21084497456192536,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.2045553225099125,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 6,
+      "normalizer": 12,
+      "trainAts": 0.48986942818550205,
+      "trainBrier": 0.21090605398785697,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.20465909200599716,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 8,
+      "normalizer": 3,
+      "trainAts": 0.4907699234579018,
+      "trainBrier": 0.2103940851651337,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.20323861336248147,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 8,
+      "normalizer": 4,
+      "trainAts": 0.49167041873030165,
+      "trainBrier": 0.21054374101616724,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.2036258894276396,
+      "adopted": true
+    },
+    {
+      "halfLifeGames": 8,
+      "normalizer": 6,
+      "trainAts": 0.49122017109410177,
+      "trainBrier": 0.2107043507786347,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.20408636226430352,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 8,
+      "normalizer": 8,
+      "trainAts": 0.49122017109410177,
+      "trainBrier": 0.21081661506060625,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.2043439625525351,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 8,
+      "normalizer": 10,
+      "trainAts": 0.48986942818550205,
+      "trainBrier": 0.21088532446659783,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.20450724652002045,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 8,
+      "normalizer": 12,
+      "trainAts": 0.4907699234579018,
+      "trainBrier": 0.21093475669017553,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.20461972779379636,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 10,
+      "normalizer": 3,
+      "trainAts": 0.48986942818550205,
+      "trainBrier": 0.21043742738696913,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.20306368552147422,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 10,
+      "normalizer": 4,
+      "trainAts": 0.4907699234579018,
+      "trainBrier": 0.2106302425542408,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.20349839613022028,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 10,
+      "normalizer": 6,
+      "trainAts": 0.49122017109410177,
+      "trainBrier": 0.21078086718042707,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.20400406995288456,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 10,
+      "normalizer": 8,
+      "trainAts": 0.4907699234579018,
+      "trainBrier": 0.21086634366652818,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.20428332339580932,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 10,
+      "normalizer": 10,
+      "trainAts": 0.49031967582170194,
+      "trainBrier": 0.21092573418308974,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.2044592705641439,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 10,
+      "normalizer": 12,
+      "trainAts": 0.4907699234579018,
+      "trainBrier": 0.21096453313157598,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.20458005110917632,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 12,
+      "normalizer": 3,
+      "trainAts": 0.4889689329131022,
+      "trainBrier": 0.21049099636691068,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.20292245823205757,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 12,
+      "normalizer": 4,
+      "trainAts": 0.48986942818550205,
+      "trainBrier": 0.21068780549722602,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.2033942670042022,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 12,
+      "normalizer": 6,
+      "trainAts": 0.49167041873030165,
+      "trainBrier": 0.2108511545117952,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.2039359375399239,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 12,
+      "normalizer": 8,
+      "trainAts": 0.49122017109410177,
+      "trainBrier": 0.21091339826572877,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.20423273161443226,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 12,
+      "normalizer": 10,
+      "trainAts": 0.49122017109410177,
+      "trainBrier": 0.21095920644319432,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.20441904690254553,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 12,
+      "normalizer": 12,
+      "trainAts": 0.4907699234579018,
+      "trainBrier": 0.21098910991824565,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.20454667224000053,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 16,
+      "normalizer": 3,
+      "trainAts": 0.4880684376407024,
+      "trainBrier": 0.21060479317483888,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.2027326585130534,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 16,
+      "normalizer": 4,
+      "trainAts": 0.4894191805493021,
+      "trainBrier": 0.2107699241178914,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.20325382760337907,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 16,
+      "normalizer": 6,
+      "trainAts": 0.4907699234579018,
+      "trainBrier": 0.2109487431564311,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.20384360501077572,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 16,
+      "normalizer": 8,
+      "trainAts": 0.49167041873030165,
+      "trainBrier": 0.2109848486497353,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.2041639700963728,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 16,
+      "normalizer": 10,
+      "trainAts": 0.49122017109410177,
+      "trainBrier": 0.21101119789728642,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.20436427211291402,
+      "adopted": false
+    },
+    {
+      "halfLifeGames": 16,
+      "normalizer": 12,
+      "trainAts": 0.4907699234579018,
+      "trainBrier": 0.21102580867517703,
+      "validationAts": 0.4738372093023256,
+      "validationBrier": 0.2045011568268678,
+      "adopted": false
+    }
+  ]
+}

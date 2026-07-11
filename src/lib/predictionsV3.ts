@@ -16,6 +16,13 @@ import {
   selectAndScoreMarketBlendedGame,
   type CoverModelCoeffs,
 } from './marketBlend'
+import {
+  emptyTeamErrorState,
+  matchupModelWeight,
+  updateTeamError,
+  type RegressionParams,
+  type TeamErrorState,
+} from './marketRegression'
 import { effectiveTeamRating, type QbStartInfo } from './teamEloV2'
 import type { GameResult, HfaConfig } from './powerRatings'
 import { HOME_FIELD_ADVANTAGE } from './powerRatings'
@@ -32,6 +39,9 @@ export interface V3GamePrediction extends GamePrediction {
   awayQbElo?: number | null
   /** How playability was decided for market-blended rows. */
   playabilityMode?: 'legacy-blended-stars' | 'independent-selection'
+  /** Model weight used for this game's blend (static or dynamic). */
+  blendModelWeight?: number
+  blendMode?: 'static-constant' | 'dynamic-error-weighted'
 }
 
 export function buildIndependentV3Prediction(
@@ -106,11 +116,16 @@ export function buildMarketBlendedV3PredictionLegacy(
 /**
  * Redesigned market-blended: select on independent star disagreement, score
  * with blended spread + coverProbability (no second differential threshold).
+ * `modelWeight` may be a constant or a per-game dynamic weight from
+ * marketRegression — only the weight source changes.
  */
 export function buildMarketBlendedV3Prediction(
   independent: V3GamePrediction,
   modelWeight: number,
   coverCoeffs: CoverModelCoeffs,
+  opts: {
+    blendMode?: 'static-constant' | 'dynamic-error-weighted'
+  } = {},
 ): V3GamePrediction {
   const posted = independent.postedSpread
   if (posted == null || !independent.postedSpreadIsHistorical) {
@@ -119,6 +134,8 @@ export function buildMarketBlendedV3Prediction(
       variant: 'v3-market-blended',
       independentSpread: independent.modelSpread,
       playabilityMode: 'independent-selection',
+      blendModelWeight: modelWeight,
+      blendMode: opts.blendMode ?? 'static-constant',
     }
   }
 
@@ -131,7 +148,6 @@ export function buildMarketBlendedV3Prediction(
     coverCoeffs,
   )
 
-  // Preserve independent star magnitudes for diagnostics; playable follows selection.
   const starRating = {
     ...independent.starRating,
     playable: selected,
@@ -145,6 +161,8 @@ export function buildMarketBlendedV3Prediction(
     starRating,
     coverProbability: coverProbability ?? undefined,
     playabilityMode: 'independent-selection',
+    blendModelWeight: modelWeight,
+    blendMode: opts.blendMode ?? 'static-constant',
   }
 
   const favoredHome = blended >= 0
@@ -152,8 +170,9 @@ export function buildMarketBlendedV3Prediction(
   const mag = Math.abs(blended).toFixed(1)
   const pCover =
     coverProbability != null ? (coverProbability * 100).toFixed(0) : '—'
+  const wLabel = modelWeight.toFixed(2)
   const blurb = selected
-    ? `Selected via independent disagreement; blended favors ${team} by ${mag} (P(cover)≈${pCover}%).`
+    ? `Selected via independent disagreement; blended favors ${team} by ${mag} (w=${wLabel}, P(cover)≈${pCover}%).`
     : `Not selected — independent model lacks a playable star vs the market.`
 
   return { ...base, blurb }
@@ -174,3 +193,71 @@ export function ratingsForGameWeek(
 
 /** Re-export for scripts that only need the spread math. */
 export { predictGameSpread, ratingBeforeWeek }
+
+/**
+ * Chronological dynamic blend: weight from trailing per-team errors BEFORE
+ * each game (no look-ahead), then update EWMA after the game settles.
+ * Selection remains independent-star via buildMarketBlendedV3Prediction.
+ */
+export function buildDynamicMarketBlendedPredictions(
+  independent: V3GamePrediction[],
+  coverCoeffs: CoverModelCoeffs,
+  params: RegressionParams,
+): V3GamePrediction[] {
+  const sorted = [...independent].sort((a, b) => {
+    if (a.season !== b.season) return a.season - b.season
+    if (a.week !== b.week) return a.week - b.week
+    return a.gameId.localeCompare(b.gameId)
+  })
+
+  const states = new Map<string, TeamErrorState>()
+  const out: V3GamePrediction[] = []
+
+  for (const p of sorted) {
+    const home =
+      states.get(p.homeTeam) ?? emptyTeamErrorState(p.homeTeam)
+    const away =
+      states.get(p.awayTeam) ?? emptyTeamErrorState(p.awayTeam)
+
+    const w = matchupModelWeight(home, away, params)
+    out.push(
+      buildMarketBlendedV3Prediction(p, w, coverCoeffs, {
+        blendMode: 'dynamic-error-weighted',
+      }),
+    )
+
+    if (
+      p.homeScore != null &&
+      p.awayScore != null &&
+      p.postedSpread != null &&
+      p.postedSpreadIsHistorical
+    ) {
+      const actualMargin = p.homeScore - p.awayScore
+      const modelSpread = p.independentSpread ?? p.modelSpread
+      const marketSpread = p.postedSpread
+      states.set(
+        p.homeTeam,
+        updateTeamError(
+          home,
+          actualMargin,
+          modelSpread,
+          marketSpread,
+          params.halfLifeGames,
+        ),
+      )
+      states.set(
+        p.awayTeam,
+        updateTeamError(
+          away,
+          actualMargin,
+          modelSpread,
+          marketSpread,
+          params.halfLifeGames,
+        ),
+      )
+    }
+  }
+
+  const byId = new Map(out.map((p) => [p.gameId, p]))
+  return independent.map((p) => byId.get(p.gameId) ?? p)
+}

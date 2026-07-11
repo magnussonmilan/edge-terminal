@@ -45,8 +45,13 @@ import {
   buildIndependentV3Prediction,
   buildMarketBlendedV3Prediction,
   buildMarketBlendedV3PredictionLegacy,
+  buildDynamicMarketBlendedPredictions,
   type V3GamePrediction,
 } from '../src/lib/predictionsV3.ts'
+import {
+  DEFAULT_REGRESSION_PARAMS,
+  type RegressionParams,
+} from '../src/lib/marketRegression.ts'
 import {
   ratingBeforeWeek,
   type GamePrediction,
@@ -608,28 +613,113 @@ async function main() {
   })
   const coverCoeffs: CoverModelCoeffs = fitCoverModel(coverRows)
 
-  // Before: legacy playability on blended stars; After: independent selection
+  // Static constant-weight blend (independent selection) — "before" for regression change
+  const blendedStatic = independent.map((p) =>
+    buildMarketBlendedV3Prediction(p, modelWeight, coverCoeffs, {
+      blendMode: 'static-constant',
+    }),
+  )
   const blendedLegacy = independent.map((p) =>
     buildMarketBlendedV3PredictionLegacy(p, modelWeight, coverCoeffs),
   )
-  const blended = independent.map((p) =>
-    buildMarketBlendedV3Prediction(p, modelWeight, coverCoeffs),
+
+  // --- 3) Dynamic error-weighted regression: calibrate halfLife + normalizer on train ---
+  console.log('\n=== Dynamic market regression calibration (train only) ===')
+  const halfLifeCandidates = [4, 6, 8, 10, 12, 16]
+  const normalizerCandidates = [3, 4, 6, 8, 10, 12]
+  let bestReg: RegressionParams = {
+    ...DEFAULT_REGRESSION_PARAMS,
+    coldStartWeight: modelWeight,
+  }
+  let bestTrainAts = -1
+  let bestTrainBrier = Infinity
+  const regLog: Array<{
+    halfLifeGames: number
+    normalizer: number
+    trainAts: number
+    trainBrier: number
+    validationAts: number
+    validationBrier: number
+    adopted: boolean
+  }> = []
+
+  for (const halfLifeGames of halfLifeCandidates) {
+    for (const normalizer of normalizerCandidates) {
+      const trial: RegressionParams = {
+        halfLifeGames,
+        normalizer,
+        coldStartWeight: modelWeight,
+      }
+      const dyn = buildDynamicMarketBlendedPredictions(
+        independent,
+        coverCoeffs,
+        trial,
+      )
+      const train = scoreSeasons(dyn, TRAIN)
+      const val = scoreSeasons(dyn, VALIDATION)
+      const adopted =
+        train.overallWinRate > bestTrainAts + 1e-12 ||
+        (Math.abs(train.overallWinRate - bestTrainAts) <= 1e-12 &&
+          train.brierScore < bestTrainBrier - 1e-12)
+      regLog.push({
+        halfLifeGames,
+        normalizer,
+        trainAts: train.overallWinRate,
+        trainBrier: train.brierScore,
+        validationAts: val.overallWinRate,
+        validationBrier: val.brierScore,
+        adopted: false,
+      })
+      if (adopted) {
+        bestTrainAts = train.overallWinRate
+        bestTrainBrier = train.brierScore
+        bestReg = trial
+      }
+    }
+  }
+  for (const row of regLog) {
+    row.adopted =
+      row.halfLifeGames === bestReg.halfLifeGames &&
+      row.normalizer === bestReg.normalizer
+  }
+  console.log(
+    `Best regression params: halfLife=${bestReg.halfLifeGames}, normalizer=${bestReg.normalizer}, coldStart=${bestReg.coldStartWeight} (train ATS ${pct(bestTrainAts)}, Brier ${bestTrainBrier.toFixed(3)})`,
+  )
+
+  const blendedDynamic = buildDynamicMarketBlendedPredictions(
+    independent,
+    coverCoeffs,
+    bestReg,
   )
 
   const v2Summary = summarize('v2 (power+stars)', v2Preds)
   const v3IndSummary = summarize('v3-independent (calibrated QB)', independent)
-  const blendBefore = summarize('v3-blend LEGACY playability', blendedLegacy)
-  const blendAfter = summarize('v3-blend NEW playability', blended)
+  const blendPlayabilityBefore = summarize(
+    'v3-blend LEGACY playability',
+    blendedLegacy,
+  )
+  const blendStatic = summarize(
+    'v3-blend STATIC constant weight',
+    blendedStatic,
+  )
+  const blendDynamic = summarize(
+    'v3-blend DYNAMIC error-weighted',
+    blendedDynamic,
+  )
 
   v3IndSummary.beatsV2Holdout =
     v3IndSummary.validationWinRate > v2Summary.validationWinRate + 0.01
-  blendAfter.beatsV2Holdout =
-    blendAfter.validationWinRate > v2Summary.validationWinRate + 0.01
+  blendDynamic.beatsV2Holdout =
+    blendDynamic.validationWinRate > v2Summary.validationWinRate + 0.01
 
   const qbHelpedHoldout =
     v3IndSummary.validationWinRate > qbCalib.before.validationWinRate + 0.005
   const playabilityGrew =
-    blendAfter.validationGames > blendBefore.validationGames * 1.5
+    blendStatic.validationGames > blendPlayabilityBefore.validationGames * 1.5
+  const dynamicHelpedBrier =
+    blendDynamic.validationBrier < blendStatic.validationBrier - 0.002
+  const dynamicHelpedAts =
+    blendDynamic.validationWinRate > blendStatic.validationWinRate + 0.005
 
   const parts: string[] = []
   if (qbHelpedHoldout) {
@@ -643,14 +733,19 @@ async function main() {
   }
   if (playabilityGrew) {
     parts.push(
-      `Playability redesign grew holdout sample ${blendBefore.validationGames} → ${blendAfter.validationGames} (selection on independent stars).`,
+      `Playability redesign holdout n ${blendPlayabilityBefore.validationGames} → ${blendStatic.validationGames}.`,
+    )
+  }
+  if (dynamicHelpedAts || dynamicHelpedBrier) {
+    parts.push(
+      `Dynamic regression vs static: holdout ATS ${pct(blendStatic.validationWinRate)} → ${pct(blendDynamic.validationWinRate)}, Brier ${blendStatic.validationBrier.toFixed(3)} → ${blendDynamic.validationBrier.toFixed(3)}.`,
     )
   } else {
     parts.push(
-      `Playability redesign holdout n ${blendBefore.validationGames} → ${blendAfter.validationGames} — report plainly.`,
+      `Dynamic error-weighted regression did not improve holdout vs static constant weight (ATS ${pct(blendStatic.validationWinRate)} → ${pct(blendDynamic.validationWinRate)}, Brier ${blendStatic.validationBrier.toFixed(3)} → ${blendDynamic.validationBrier.toFixed(3)}) — trailing per-team errors may not be stable enough to exploit.`,
     )
   }
-  if (!v3IndSummary.beatsV2Holdout && !blendAfter.beatsV2Holdout) {
+  if (!v3IndSummary.beatsV2Holdout && !blendDynamic.beatsV2Holdout) {
     parts.push('Neither v3 variant clearly beats v2 on holdout.')
   }
   const verdict = parts.join(' ')
@@ -663,7 +758,11 @@ async function main() {
   )
   await writeFile(
     path.join(OUT_DIR, 'predictions-v3-market.json'),
-    JSON.stringify(blended),
+    JSON.stringify(blendedDynamic),
+  )
+  await writeFile(
+    path.join(OUT_DIR, 'predictions-v3-market-static.json'),
+    JSON.stringify(blendedStatic),
   )
   await writeFile(
     path.join(OUT_DIR, 'predictions-v3-market-legacy.json'),
@@ -692,11 +791,26 @@ async function main() {
       2,
     ),
   )
+  await writeFile(
+    path.join(OUT_DIR, 'market-regression-calibration-log.json'),
+    JSON.stringify(
+      {
+        generatedAt: new Date().toISOString(),
+        source:
+          'Inspired by nfelo "Using Market Regression to Improve Prediction Accuracy in the NFL" (2020-11-08) — independent implementation from published description.',
+        fitted: bestReg,
+        staticModelWeight: modelWeight,
+        log: regLog,
+      },
+      null,
+      2,
+    ),
+  )
 
   const report = {
     generatedAt: new Date().toISOString(),
     methodology:
-      'v3 QB-Elo (calibrated internals) + weekly-EPA + market blend with independent-selection playability. Two changes reported separately. IP: independent reimplementation — not a port of nfelo source.',
+      'v3 QB-Elo + weekly-EPA + market blend. Dynamic error-weighted regression (EWMA per-team trailing error → blend weight) vs static constant weight, reported separately. Selection still independent-star. IP: independent reimplementation from public methodology descriptions — not a port of nfelo source.',
     requestedSplit: {
       train: '2009–2022',
       validation: '2023–2024',
@@ -714,13 +828,14 @@ async function main() {
       'Team WEPA approximated from weekly player EPA sums; play-level weightPlay() used when PBP rows are supplied (unit tests).',
     qbEloParams: qbCalib.params,
     modelWeight,
+    marketRegression: bestReg,
     coverCoeffs,
     replacementElo: QB_ELO_REPLACEMENT,
     breakeven: BREAKEVEN_WIN_RATE,
     v2: v2Summary,
     v3Independent: v3IndSummary,
-    v3MarketBlended: blendAfter,
-    /** Separate before/after — do not collapse into one "v4" number. */
+    v3MarketBlended: blendDynamic,
+    v3MarketBlendedStatic: blendStatic,
     changes: {
       qbEloCalibration: {
         before: qbCalib.before,
@@ -730,12 +845,22 @@ async function main() {
         helpedHoldout: qbHelpedHoldout,
       },
       marketBlendPlayability: {
-        before: blendBefore,
-        after: blendAfter,
+        before: blendPlayabilityBefore,
+        after: blendStatic,
         beforeMode: 'legacy-blended-stars',
         afterMode: 'independent-selection',
         sampleGrew: playabilityGrew,
-        note: 'Selection uses independent star disagreement; betting signal is blended spread + coverProbability. Legacy applied stars to the blended number (mechanically shrunk).',
+        note: 'Selection uses independent star disagreement; betting signal is blended spread + coverProbability.',
+      },
+      marketRegressionDynamic: {
+        before: blendStatic,
+        after: blendDynamic,
+        beforeMode: 'static-constant',
+        afterMode: 'dynamic-error-weighted',
+        params: bestReg,
+        helpedHoldoutAts: dynamicHelpedAts,
+        helpedHoldoutBrier: dynamicHelpedBrier,
+        note: 'Trailing per-team EWMA squared error → relative_accuracy (sqrt each team then average) → clamped-linear weight. Half-life + normalizer fit on train ATS only.',
       },
     },
     verdict,
@@ -747,7 +872,7 @@ async function main() {
   )
 
   console.log(
-    'Wrote predictions-v3-*.json, ratings-v3.json, qb-elo-calibration-log.json, calibrated-v3.json',
+    'Wrote predictions-v3-*.json, ratings-v3.json, calibration logs, calibrated-v3.json',
   )
 }
 

@@ -55,6 +55,20 @@ export type V3CalibrationReport = {
       beforeMode?: string
       afterMode?: string
     }
+    marketRegressionDynamic?: {
+      before: ModelSummary
+      after: ModelSummary
+      helpedHoldoutAts?: boolean
+      helpedHoldoutBrier?: boolean
+      note?: string
+      beforeMode?: string
+      afterMode?: string
+      params?: {
+        halfLifeGames: number
+        normalizer: number
+        coldStartWeight: number
+      }
+    }
   }
 }
 

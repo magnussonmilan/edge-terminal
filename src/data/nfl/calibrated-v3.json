@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-07-11T00:33:47.033Z",
-  "methodology": "v3 QB-Elo (calibrated internals) + weekly-EPA + market blend with independent-selection playability. Two changes reported separately. IP: independent reimplementation — not a port of nfelo source.",
+  "generatedAt": "2026-07-11T00:43:23.279Z",
+  "methodology": "v3 QB-Elo + weekly-EPA + market blend. Dynamic error-weighted regression (EWMA per-team trailing error → blend weight) vs static constant weight, reported separately. Selection still independent-star. IP: independent reimplementation from public methodology descriptions — not a port of nfelo source.",
   "requestedSplit": {
     "train": "2009–2022",
     "validation": "2023–2024"
@@ -42,6 +42,11 @@
     "wepaToEloScale": 8
   },
   "modelWeight": 0.15,
+  "marketRegression": {
+    "halfLifeGames": 8,
+    "normalizer": 4,
+    "coldStartWeight": 0.15
+  },
   "coverCoeffs": {
     "intercept": -0.04891515461383162,
     "slope": -0.1072655178458949
@@ -97,6 +102,30 @@
     "beatsV2Holdout": false
   },
   "v3MarketBlended": {
+    "trainWinRate": 0.49167041873030165,
+    "trainGames": 2221,
+    "trainBrier": 0.21054374101616724,
+    "trainRoi": -0.06135647333306045,
+    "trainStraightUpAccuracy": 0.6597280044407439,
+    "trainStraightUpGames": 3603,
+    "trainMae": 10.305772669962442,
+    "validationWinRate": 0.4738372093023256,
+    "validationGames": 344,
+    "validationBrier": 0.2036258894276396,
+    "validationRoi": -0.09540169133192387,
+    "validationStraightUpAccuracy": 0.6819852941176471,
+    "validationStraightUpGames": 544,
+    "validationMae": 9.942338194788729,
+    "allWinRate": 0.48927875243664715,
+    "allGames": 2565,
+    "allBrier": 0.20961596676803743,
+    "allRoi": -0.06592238171185545,
+    "allStraightUpAccuracy": 0.6626476971304558,
+    "allMae": 10.258235195931542,
+    "allMaeN": 4159,
+    "beatsV2Holdout": false
+  },
+  "v3MarketBlendedStatic": {
     "trainWinRate": 0.48986942818550205,
     "trainGames": 2221,
     "trainBrier": 0.20793919233668204,
@@ -240,8 +269,68 @@
       "beforeMode": "legacy-blended-stars",
       "afterMode": "independent-selection",
       "sampleGrew": true,
-      "note": "Selection uses independent star disagreement; betting signal is blended spread + coverProbability. Legacy applied stars to the blended number (mechanically shrunk)."
+      "note": "Selection uses independent star disagreement; betting signal is blended spread + coverProbability."
+    },
+    "marketRegressionDynamic": {
+      "before": {
+        "trainWinRate": 0.48986942818550205,
+        "trainGames": 2221,
+        "trainBrier": 0.20793919233668204,
+        "trainRoi": -0.06479472800949616,
+        "trainStraightUpAccuracy": 0.6636136552872606,
+        "trainStraightUpGames": 3603,
+        "trainMae": 10.243824578249255,
+        "validationWinRate": 0.4738372093023256,
+        "validationGames": 344,
+        "validationBrier": 0.19891969540371088,
+        "validationRoi": -0.09540169133192387,
+        "validationStraightUpAccuracy": 0.6948529411764706,
+        "validationStraightUpGames": 544,
+        "validationMae": 9.797803753837883,
+        "allWinRate": 0.48771929824561405,
+        "allGames": 2565,
+        "allBrier": 0.20672955999947276,
+        "allRoi": -0.06889952153110049,
+        "allStraightUpAccuracy": 0.6677115987460815,
+        "allMae": 10.185484754137734,
+        "allMaeN": 4159,
+        "beatsV2Holdout": false
+      },
+      "after": {
+        "trainWinRate": 0.49167041873030165,
+        "trainGames": 2221,
+        "trainBrier": 0.21054374101616724,
+        "trainRoi": -0.06135647333306045,
+        "trainStraightUpAccuracy": 0.6597280044407439,
+        "trainStraightUpGames": 3603,
+        "trainMae": 10.305772669962442,
+        "validationWinRate": 0.4738372093023256,
+        "validationGames": 344,
+        "validationBrier": 0.2036258894276396,
+        "validationRoi": -0.09540169133192387,
+        "validationStraightUpAccuracy": 0.6819852941176471,
+        "validationStraightUpGames": 544,
+        "validationMae": 9.942338194788729,
+        "allWinRate": 0.48927875243664715,
+        "allGames": 2565,
+        "allBrier": 0.20961596676803743,
+        "allRoi": -0.06592238171185545,
+        "allStraightUpAccuracy": 0.6626476971304558,
+        "allMae": 10.258235195931542,
+        "allMaeN": 4159,
+        "beatsV2Holdout": false
+      },
+      "beforeMode": "static-constant",
+      "afterMode": "dynamic-error-weighted",
+      "params": {
+        "halfLifeGames": 8,
+        "normalizer": 4,
+        "coldStartWeight": 0.15
+      },
+      "helpedHoldoutAts": false,
+      "helpedHoldoutBrier": false,
+      "note": "Trailing per-team EWMA squared error → relative_accuracy (sqrt each team then average) → clamped-linear weight. Half-life + normalizer fit on train ATS only."
     }
   },
-  "verdict": "QB-Elo calib did not meaningfully improve holdout ATS (48.1% → 47.4%). Playability redesign grew holdout sample 35 → 344 (selection on independent stars). Neither v3 variant clearly beats v2 on holdout."
+  "verdict": "QB-Elo calib did not meaningfully improve holdout ATS (48.1% → 47.4%). Playability redesign holdout n 35 → 344. Dynamic error-weighted regression did not improve holdout vs static constant weight (ATS 47.4% → 47.4%, Brier 0.199 → 0.204) — trailing per-team errors may not be stable enough to exploit. Neither v3 variant clearly beats v2 on holdout."
 }

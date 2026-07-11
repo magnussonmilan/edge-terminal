@@ -326,7 +326,7 @@ export function BacktestPage() {
               {v3Split.note}
             </p>
             {v3.changes && (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
                   <p className="font-semibold text-slate-900">
                     Change A — QB-Elo calibration
@@ -374,6 +374,41 @@ export function BacktestPage() {
                   </p>
                   <p className="mt-1 text-slate-500">
                     {v3.changes.marketBlendPlayability?.note}
+                  </p>
+                </div>
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                  <p className="font-semibold text-slate-900">
+                    Change C — dynamic error-weighted regression
+                  </p>
+                  <p className="mt-1 tabular-nums">
+                    Static → dynamic holdout ATS{' '}
+                    {(
+                      (v3.changes.marketRegressionDynamic?.before
+                        .validationWinRate ?? 0) * 100
+                    ).toFixed(1)}
+                    % →{' '}
+                    {(
+                      (v3.changes.marketRegressionDynamic?.after
+                        .validationWinRate ?? 0) * 100
+                    ).toFixed(1)}
+                    %
+                    {' · '}
+                    Brier{' '}
+                    {(
+                      v3.changes.marketRegressionDynamic?.before
+                        .validationBrier ?? 0
+                    ).toFixed(3)}{' '}
+                    →{' '}
+                    {(
+                      v3.changes.marketRegressionDynamic?.after.validationBrier ??
+                      0
+                    ).toFixed(3)}
+                  </p>
+                  <p className="mt-1 text-slate-500">
+                    {v3.changes.marketRegressionDynamic?.note}
+                    {v3.changes.marketRegressionDynamic?.params
+                      ? ` Fitted halfLife=${v3.changes.marketRegressionDynamic.params.halfLifeGames}, Base=${v3.changes.marketRegressionDynamic.params.normalizer}.`
+                      : ''}
                   </p>
                 </div>
               </div>
