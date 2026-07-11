@@ -27,6 +27,7 @@ import type { MatchedEventPair } from './eventMatcher'
 import type { MarketPrice } from './marketPrice'
 import { NFL_FULL_TO_ABBR } from './valueBets'
 import type { GamePrediction } from './predictions'
+import type { SportGameOption } from './sportAdapter'
 
 export type VenueType = 'traditional_book' | 'prediction_market'
 
@@ -324,7 +325,20 @@ export function buildUnifiedComparison(
         weightUsed: 1,
         isCalibratedDefault: false,
       },
-      moneylineVenues: [],
+      moneylineVenues: [
+        ...moneylineQuotesFromBooks(
+          bookOddsForGame(
+            extras.bookOdds ?? [],
+            pred.homeTeam,
+            pred.awayTeam,
+          ),
+        ),
+        ...pairsForGame(
+          extras.predictionMarkets ?? [],
+          pred.homeTeam,
+          pred.awayTeam,
+        ).flatMap(predictionMarketToVenueQuotes),
+      ],
       spreadVenues: [],
       totalVenues: [],
       blendTracksMarketClosely: calibratedWeight <= 0.25,
@@ -357,6 +371,103 @@ export function buildUnifiedComparison(
     season: pred.season,
     week: pred.week,
     postedSpread: marketSpread,
+    calibratedWeight,
+    modelRaw: {
+      moneylineProbability: spreadToWinProb(modelSpread),
+      spread: modelSpread,
+    },
+    modelBlended: blended,
+    moneylineVenues,
+    spreadVenues: lineQuotesFromBooks(scopedBooks, 'spread'),
+    totalVenues: lineQuotesFromBooks(scopedBooks, 'total'),
+    blendTracksMarketClosely: calibratedWeight <= 0.25,
+  }
+}
+
+/**
+ * Sport-adapter path: same venue quoting as NFL, but model may be Elo
+ * moneyline-only (no posted spread / no market blend).
+ */
+export function buildUnifiedComparisonFromSportGame(
+  game: SportGameOption,
+  options: {
+    calibratedWeight: number
+    weightOverride?: number
+    supportsMarketBlend: boolean
+    extras?: UnifiedComparisonExtras
+  },
+): UnifiedGameComparison {
+  const extras = options.extras ?? {}
+  const calibratedWeight = clampWeight(options.calibratedWeight)
+  const weightUsed =
+    options.weightOverride == null
+      ? calibratedWeight
+      : clampWeight(options.weightOverride)
+
+  const scopedBooks = bookOddsForGame(
+    extras.bookOdds ?? [],
+    game.homeTeam,
+    game.awayTeam,
+  )
+  const moneylineVenues = [
+    ...moneylineQuotesFromBooks(scopedBooks),
+    ...pairsForGame(
+      extras.predictionMarkets ?? [],
+      game.homeTeam,
+      game.awayTeam,
+    ).flatMap(predictionMarketToVenueQuotes),
+  ]
+
+  const rawProb = game.modelHomeWinProb
+  const modelSpread = game.modelSpread
+
+  // MLB / moneyline-only: no posted spread → pure model, no blend slider effect
+  if (
+    !options.supportsMarketBlend ||
+    game.postedSpread == null ||
+    modelSpread == null
+  ) {
+    return {
+      gameId: game.gameId,
+      matchup: game.matchup,
+      homeTeam: game.homeTeam,
+      awayTeam: game.awayTeam,
+      season: game.season,
+      week: game.week,
+      postedSpread: game.postedSpread,
+      calibratedWeight,
+      modelRaw: {
+        moneylineProbability: rawProb,
+        spread: modelSpread ?? Number.NaN,
+      },
+      modelBlended: {
+        moneylineProbability: rawProb,
+        spread: modelSpread ?? Number.NaN,
+        weightUsed: 1,
+        isCalibratedDefault: !options.supportsMarketBlend,
+      },
+      moneylineVenues,
+      spreadVenues: lineQuotesFromBooks(scopedBooks, 'spread'),
+      totalVenues: lineQuotesFromBooks(scopedBooks, 'total'),
+      blendTracksMarketClosely: false,
+    }
+  }
+
+  const blended = recomputeBlendedModel(
+    modelSpread,
+    game.postedSpread,
+    weightUsed,
+    calibratedWeight,
+  )
+
+  return {
+    gameId: game.gameId,
+    matchup: game.matchup,
+    homeTeam: game.homeTeam,
+    awayTeam: game.awayTeam,
+    season: game.season,
+    week: game.week,
+    postedSpread: game.postedSpread,
     calibratedWeight,
     modelRaw: {
       moneylineProbability: spreadToWinProb(modelSpread),

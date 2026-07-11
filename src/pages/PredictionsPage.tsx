@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   FREE_PREDICTION_LIMIT,
   getPredictions,
@@ -11,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useTradeStore } from '@/store/useTradeStore'
 import { cn } from '@/lib/utils'
+import { MLB_COPYRIGHT, MLB_META } from '@/lib/mlbData'
 
 export function PredictionsPage() {
   const seasons = listSeasons()
@@ -36,6 +38,21 @@ export function PredictionsPage() {
           This shows how the model works against historical closing lines — not a claim
           that it beats the market.
         </p>
+        <div className="mt-4 max-w-2xl rounded-md border border-emerald-200 bg-emerald-50/60 px-3 py-3">
+          <p className="text-sm font-medium text-emerald-950">
+            MLB Elo vs Kalshi / Polymarket
+          </p>
+          <p className="mt-1 text-xs text-emerald-900/90">
+            Real Elo win probs from Neil Paine&apos;s MIT feed ({MLB_META.freshness.status}
+            : not updating into 2026). {MLB_COPYRIGHT}.
+          </p>
+          <Link
+            to="/compare?sport=mlb"
+            className="mt-2 inline-block text-sm font-medium text-emerald-900 underline"
+          >
+            Open MLB edge vs prediction markets →
+          </Link>
+        </div>
       </header>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">

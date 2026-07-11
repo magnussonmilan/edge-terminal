@@ -18,7 +18,9 @@ export interface PairScanRow {
 }
 
 export async function scanCuratedPairs(
-  pairs: MatchedEventPair[] = listCuratedPairs(),
+  pairs: MatchedEventPair[] = listCuratedPairs().filter(
+    (p) => (p.sport ?? 'nfl') === 'nfl',
+  ),
 ): Promise<PairScanRow[]> {
   const rows: PairScanRow[] = []
 

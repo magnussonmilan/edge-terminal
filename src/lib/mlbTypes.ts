@@ -1,13 +1,13 @@
 /**
- * MLB Elo types for FiveThirtyEight / ABC News game-by-game forecasts.
+ * MLB Elo types — Neil Paine historical feed (MIT).
  *
- * Attribution (CC BY 4.0 — required wherever this data or derivatives appear):
- * Data by FiveThirtyEight/ABC News.
- * Source tree: https://github.com/fivethirtyeight/data/tree/master/mlb-elo
- * License: https://github.com/fivethirtyeight/data/blob/master/LICENSE
+ * Copyright (c) 2024 Neil Paine
+ * Source: https://github.com/Neil-Paine-1/MLB-WAR-data-historical
+ * License: MIT (LICENSE.txt in that repo) — retain this copyright notice
+ * wherever the software/data is redistributed.
  *
- * Using this material does not imply FiveThirtyEight or ABC News sponsors,
- * endorses, or is affiliated with Edge Terminal (CC BY 4.0 §2(a)(6)).
+ * Prior 538/ABC CC BY feed was frozen (settled ~2023-06-20) and is no longer
+ * the ingest source. Verification math still applies to Elo probs in this file.
  */
 
 export interface MlbEloGame {
@@ -16,11 +16,9 @@ export interface MlbEloGame {
   season: number
   neutral: boolean
   playoff: string | null
-  /** Home team abbreviation as in the 538 file (franchise-continuous). */
+  /** Home team abbreviation (is_home=1 row; team1 is home perspective). */
   homeTeam: string
-  /** Away team abbreviation as in the 538 file. */
   awayTeam: string
-  /** Stable franchise IDs after relocation/rename mapping. */
   homeFranchiseId: string
   awayFranchiseId: string
   elo1Pre: number
@@ -29,6 +27,7 @@ export interface MlbEloGame {
   eloProb2: number
   elo1Post: number | null
   elo2Post: number | null
+  /** Pitcher-adjusted "rating" system — not present in Neil Paine CSV. */
   rating1Pre: number | null
   rating2Pre: number | null
   pitcher1: string | null
@@ -47,6 +46,7 @@ export interface MlbEloGame {
 
 export interface MlbIngestMeta {
   attribution: string
+  copyrightNotice: string
   license: string
   licenseUrl: string
   sourceReadme: string
@@ -56,10 +56,10 @@ export interface MlbIngestMeta {
     officialNote: string
     resolvedSource: string
     archiveTimestamp: string | null
+    lastRepoCommitDate: string | null
   }
-  /** Plain-language freshness finding. */
   freshness: {
-    status: 'live' | 'frozen'
+    status: 'live' | 'frozen' | 'seasonal'
     summary: string
     minDate: string
     maxDate: string

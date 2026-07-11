@@ -1,28 +1,29 @@
 {
-  "attribution": "Data by FiveThirtyEight/ABC News, CC BY 4.0",
-  "license": "CC BY 4.0",
-  "licenseUrl": "https://github.com/fivethirtyeight/data/blob/master/LICENSE",
-  "sourceReadme": "https://github.com/fivethirtyeight/data/tree/master/mlb-elo",
+  "attribution": "Copyright (c) 2024 Neil Paine. Source: https://github.com/Neil-Paine-1/MLB-WAR-data-historical (MIT).",
+  "copyrightNotice": "Copyright (c) 2024 Neil Paine",
+  "license": "MIT",
+  "licenseUrl": "https://github.com/Neil-Paine-1/MLB-WAR-data-historical/blob/master/LICENSE.txt",
+  "sourceReadme": "https://github.com/Neil-Paine-1/MLB-WAR-data-historical",
   "canonicalUrls": [
-    "https://projects.fivethirtyeight.com/mlb-api/mlb_elo.csv",
-    "https://projects.fivethirtyeight.com/mlb-api/mlb_elo_latest.csv"
+    "https://raw.githubusercontent.com/Neil-Paine-1/MLB-WAR-data-historical/master/mlb-elo-latest.csv"
   ],
   "fetchStatus": {
     "officialLive": false,
-    "officialNote": "Official URL did not return CSV (HTTP 200, final body is not mlb_elo). Likely dead after ABC News transition. | latest: Official URL did not return CSV (HTTP 200, final body is not mlb_elo). Likely dead after ABC News transition.",
-    "resolvedSource": "local cache /Users/milanmagnusson/edge-terminal/src/data/mlb/raw/mlb_elo.csv",
-    "archiveTimestamp": null
+    "officialNote": "Neil Paine MLB-WAR-data-historical mlb-elo-latest.csv. Seasonal/manual feed — not actively updating into the 2026 season. Last GitHub commit on mlb-elo-latest.csv: 2025-05-10. Settled scores through 2025-05-09; file dates through 2025-09-28 (includes unsettled rows). Stronger/more current than the prior 538 freeze (settled ~2023-06-20), but not a live 2026 pipeline.",
+    "resolvedSource": "local cache /Users/milanmagnusson/edge-terminal/src/data/mlb/raw/mlb_elo_neil_paine.csv",
+    "archiveTimestamp": null,
+    "lastRepoCommitDate": "2025-05-10"
   },
   "freshness": {
-    "status": "frozen",
-    "summary": "Frozen historical snapshot — official projects.fivethirtyeight.com/mlb-api URLs no longer serve CSV (redirect away). Resolved file last settled game 2023-06-20, max season 2023. Fine for historical verification; not a live feed for current seasons.",
+    "status": "seasonal",
+    "summary": "Seasonal/manual feed — not actively updating into the 2026 season. Last GitHub commit on mlb-elo-latest.csv: 2025-05-10. Settled scores through 2025-05-09; file dates through 2025-09-28 (includes unsettled rows). Stronger/more current than the prior 538 freeze (settled ~2023-06-20), but not a live 2026 pipeline.",
     "minDate": "1871-05-04",
-    "maxDate": "2023-10-01",
-    "maxSeason": 2023,
-    "maxSettledDate": "2023-06-20",
-    "settledGameCount": 226996,
-    "unsettledGameCount": 1330
+    "maxDate": "2025-09-28",
+    "maxSeason": 2025,
+    "maxSettledDate": "2025-05-09",
+    "settledGameCount": 231411,
+    "unsettledGameCount": 1850
   },
-  "generatedAt": "2026-07-11T12:11:19.292Z",
-  "gameCount": 228326
+  "generatedAt": "2026-07-11T13:12:30.385Z",
+  "gameCount": 233261
 }

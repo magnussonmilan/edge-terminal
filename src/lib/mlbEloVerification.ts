@@ -1,13 +1,12 @@
 /**
- * Independent verification of FiveThirtyEight MLB Elo / rating probabilities.
+ * Independent verification of MLB Elo pre-game probabilities vs outcomes.
  *
- * Compute accuracy and Brier directly from raw pre-game probabilities vs
- * actual score1/score2 — do not cite published summaries without this check.
+ * Compute accuracy and Brier directly from raw probs vs score1/score2 —
+ * do not cite published summaries without this check.
  *
- * Attribution (data): Data by FiveThirtyEight/ABC News, CC BY 4.0.
- * https://github.com/fivethirtyeight/data/tree/master/mlb-elo
- * Verification numbers below are Edge Terminal's own computations over that
- * data (Adapted Material if redistributed) — not 538's published figures.
+ * Current ingest source: Neil Paine mlb-elo-latest.csv (MIT).
+ * Copyright (c) 2024 Neil Paine — https://github.com/Neil-Paine-1/MLB-WAR-data-historical
+ * Figures below are Edge Terminal computations over that data.
  */
 
 import type { MlbEloGame } from './mlbTypes'
@@ -41,8 +40,8 @@ export const DEFAULT_MLB_ERAS: EraFilter[] = [
   { minSeason: 1950, maxSeason: 1999, label: '1950–1999' },
   { minSeason: 2000, maxSeason: 2013, label: '2000–2013' },
   { minSeason: 2014, maxSeason: 9999, label: 'modern (2014+)' },
-  { minSeason: 2014, maxSeason: 2023, label: '2014–2023 (pitcher-era window)' },
-  { minSeason: 2021, maxSeason: 2023, label: '2021–2023 (recent / opener era)' },
+  { minSeason: 2014, maxSeason: 2023, label: '2014–2023' },
+  { minSeason: 2021, maxSeason: 2025, label: '2021–2025 (recent)' },
 ]
 
 function inEra(season: number, filter?: EraFilter): boolean {
@@ -96,7 +95,7 @@ export function scoreProbabilitySeries(
 }
 
 /**
- * Compute our own accuracy/Brier for both 538 systems on a game list.
+ * Compute our own accuracy/Brier for Elo (± rating when present) on a game list.
  */
 export function verifyEloModelAccuracy(
   games: MlbEloGame[],

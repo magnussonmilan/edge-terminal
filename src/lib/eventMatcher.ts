@@ -1,5 +1,5 @@
 /**
- * Curated Kalshi ↔ Polymarket event pairs (NFL game winners only).
+ * Curated Kalshi ↔ Polymarket event pairs (NFL + MLB game winners).
  *
  * NOT fuzzy title matching. Every pair is hand-entered. The arb detector
  * refuses to flag any pair where verifiedEquivalent !== true — that flag
@@ -21,11 +21,13 @@ export interface MatchedEventPair {
   verifiedEquivalent: boolean
   /** Why equivalent, or why not (required documentation). */
   verificationNote: string
-  /** Optional team join keys (nflverse abbreviations) for unified comparison. */
+  /** Optional team join keys (nflverse / MLB abbreviations) for unified comparison. */
   homeTeam?: string
   awayTeam?: string
   /** Which side Kalshi YES / polymarketAlignedOutcome refers to. */
   yesSide?: 'home' | 'away'
+  /** Defaults to nfl when omitted (back-compat for existing NFL pairs). */
+  sport?: 'nfl' | 'mlb'
 }
 
 /**
@@ -49,14 +51,39 @@ export const CURATED_NFL_GAME_PAIRS: MatchedEventPair[] = [
     homeTeam: 'DAL',
     awayTeam: 'SEA',
     yesSide: 'away',
+    sport: 'nfl',
     verifiedEquivalent: false,
     verificationNote:
       'NOT verified. Same scheduled game and both pay ~50/50 on a completed tie, but postponement/cancel rules diverge: Kalshi resolves to a fair market price if the game has not started within 48 hours of the original start; Polymarket stays open until the game is completed, and resolves 50-50 only if canceled entirely (or tied with no make-up). A naive arb across those states is not risk-free. Leave verifiedEquivalent false until a human accepts that residual basis risk — or until rules are confirmed identical for the specific trade window.',
   },
 ]
 
+/**
+ * MLB seed candidates — same hand-curation / verifiedEquivalent gate as NFL.
+ * Placeholder IDs until a human maps live Kalshi/Polymarket markets; Compare
+ * still joins by homeTeam/awayTeam and surfaces the unverified flag.
+ */
+export const CURATED_MLB_GAME_PAIRS: MatchedEventPair[] = [
+  {
+    kalshiMarketId: 'KXMLBGAME-EXAMPLE-NYYBOS-NYY',
+    polymarketMarketId: '0xmlb-example-nyy-bos-placeholder',
+    polymarketAlignedOutcome: 'Yankees',
+    description:
+      'Yankees @ Red Sox — curated MLB moneyline candidate (placeholder IDs)',
+    homeTeam: 'BOS',
+    awayTeam: 'NYY',
+    yesSide: 'away',
+    sport: 'mlb',
+    verifiedEquivalent: false,
+    verificationNote:
+      'NOT verified. Placeholder market IDs for wiring the MLB Compare path — replace with live Kalshi/Polymarket IDs after reading both venues’ verbatim resolution rules. Same gate as NFL: never treat as equivalent until opted in.',
+  },
+]
+
 export function listCuratedPairs(): MatchedEventPair[] {
-  return CURATED_NFL_GAME_PAIRS.map((p) => ({ ...p }))
+  return [...CURATED_NFL_GAME_PAIRS, ...CURATED_MLB_GAME_PAIRS].map((p) => ({
+    ...p,
+  }))
 }
 
 export function listVerifiedPairs(): MatchedEventPair[] {
@@ -67,7 +94,7 @@ export function getPairByIds(
   kalshiMarketId: string,
   polymarketMarketId: string,
 ): MatchedEventPair | null {
-  const hit = CURATED_NFL_GAME_PAIRS.find(
+  const hit = listCuratedPairs().find(
     (p) =>
       p.kalshiMarketId === kalshiMarketId &&
       p.polymarketMarketId === polymarketMarketId,
