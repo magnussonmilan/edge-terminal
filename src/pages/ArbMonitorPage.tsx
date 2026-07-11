@@ -168,6 +168,12 @@ function OpportunityCard({ row }: { row: PairScanRow }) {
           <br />
           settlement {usd(b.settlementValue)} − cost = net{' '}
           {usd(opp.netProfitPerDollar)}
+          <br />
+          Poly fee curve: r={b.polymarketFeeParams.feeRate} e=
+          {b.polymarketFeeParams.exponent}
+          {b.polymarketFeeParams.fromLiveQuery
+            ? ' (live getClobMarketInfo)'
+            : ' (FALLBACK — live query failed)'}
         </div>
       </div>
       <RulesSideBySide row={row} />

@@ -6,6 +6,23 @@
 export type Venue = 'kalshi' | 'polymarket'
 
 /**
+ * Per-market Polymarket fee curve from CLOB getClobMarketInfo (`fd`).
+ * Docs: https://docs.polymarket.com/trading/fees
+ * Endpoint: GET https://clob.polymarket.com/clob-markets/{condition_id}
+ *   → fd: { r: feeRate, e: exponent, to: takerOnly }
+ */
+export interface PolymarketFeeParams {
+  /** fd.r — fee rate */
+  feeRate: number
+  /** fd.e — fee curve exponent */
+  exponent: number
+  /** fd.to — fees apply to takers only */
+  takerOnly: boolean
+  /** true when params came from live getClobMarketInfo; false = fallback */
+  fromLiveQuery: boolean
+}
+
+/**
  * Normalized market snapshot. Prices are probabilities in [0, 1]
  * (dollars per $1 settlement contract).
  *
@@ -28,8 +45,8 @@ export interface MarketPrice {
   /** Settlement source string from the venue, verbatim when available. */
   resolutionSource: string
   lastUpdated: Date
-  /** Optional raw fee-rate hint from the venue (Polymarket sports = 0.05). */
-  feeRateHint?: number
+  /** Live per-market Polymarket fee curve (preferred over any global constant). */
+  polymarketFee?: PolymarketFeeParams
 }
 
 export function parseDollarProb(v: string | number | null | undefined): number | null {

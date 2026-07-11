@@ -1,12 +1,21 @@
 /**
- * Read-only Polymarket client (Gamma discovery + CLOB prices).
+ * Read-only Polymarket client (Gamma discovery + CLOB prices + live fees).
  *
- * Docs checked 2026-07-10:
+ * Docs / endpoints checked 2026-07-10 (authoritative: docs.polymarket.com):
  * - Gamma: https://gamma-api.polymarket.com (public, no auth)
  * - CLOB: https://clob.polymarket.com (public book/price reads; trading needs auth)
- * - Fees (docs.polymarket.com/trading/fees): sports taker
- *   fee = C × 0.05 × p × (1 − p), rounded to 5 decimal places; makers free
- * - Geopolitics fee-free; NFL moneylines use sports schedule (feeType sports_fees_v2)
+ * - Fees: https://docs.polymarket.com/trading/fees
+ * - Fee params: GET /clob-markets/{condition_id}  (SDK: getClobMarketInfo)
+ *     response.fd = { r: feeRate, e: exponent, to: takerOnly }
+ * - No CLOB fee-preview/quote endpoint for a hypothetical trade size was found
+ *   (bridge "Get a quote" is deposits/withdrawals; RFQ quotes are maker-side).
+ *
+ * Fee formula (official @polymarket/clob-client-v2 adjustBuyAmountForFees,
+ * which implements the docs curve with the exponent term):
+ *   fee = C × feeRate × (p × (1 − p))^exponent
+ * When exponent === 1 this reduces to the docs page form:
+ *   fee = C × feeRate × p × (1 − p)
+ * Rounded to 5 decimal places (docs: smallest fee 0.00001 USDC).
  *
  * No order-placement endpoints are called here.
  */
@@ -14,6 +23,7 @@
 import {
   parseDollarProb,
   type MarketPrice,
+  type PolymarketFeeParams,
 } from './marketPrice'
 
 export const POLYMARKET_GAMMA_BASE =
@@ -26,23 +36,73 @@ export const POLYMARKET_CLOB_BASE =
     ? '/api/polymarket-clob'
     : 'https://clob.polymarket.com'
 
-/** Sports category taker fee rate from Polymarket fee docs. */
-export const POLYMARKET_SPORTS_TAKER_FEE_RATE = 0.05
+/**
+ * Fallback ONLY when getClobMarketInfo fails.
+ * Matches docs.polymarket.com/trading/fees Sports row (rate 0.05, e=1) —
+ * not used as the primary path. Callers must log when this is applied.
+ */
+export const POLYMARKET_FEE_FALLBACK: PolymarketFeeParams = {
+  feeRate: 0.05,
+  exponent: 1,
+  takerOnly: true,
+  fromLiveQuery: false,
+}
+
+export interface ClobFeeDetails {
+  r?: number | null
+  e?: number | null
+  to?: boolean | null
+}
+
+export interface ClobMarketInfo {
+  c?: string
+  fd?: ClobFeeDetails | null
+  t?: Array<{ t?: string; o?: string }>
+  mos?: number
+  mts?: number
+  tbf?: number
+  mbf?: number
+}
 
 /**
  * Polymarket taker fee in USDC for C shares at price p.
- * fee = C × feeRate × p × (1 − p), rounded to 5 decimal places.
+ *
+ * Source: docs.polymarket.com/trading/fees + official SDK
+ * `@polymarket/clob-client-v2` `adjustBuyAmountForFees`:
+ *   effectiveRate = feeRate * (p * (1 - p)) ** exponent
+ *   fee on C shares ≈ C * effectiveRate
+ * (SDK expresses the same curve as USDC-spend × effectiveRate / p.)
  */
 export function polymarketTakerFeeDollars(
   contracts: number,
   price: number,
-  feeRate: number = POLYMARKET_SPORTS_TAKER_FEE_RATE,
+  params: PolymarketFeeParams = POLYMARKET_FEE_FALLBACK,
 ): number {
   const C = Math.max(0, contracts)
   const p = Math.max(0, Math.min(1, price))
-  const raw = C * feeRate * p * (1 - p)
-  // Round to 5 decimal places (docs: smallest fee 0.00001 USDC)
+  const rate = Math.max(0, params.feeRate)
+  const exp = Number.isFinite(params.exponent) ? params.exponent : 1
+  const curve = p * (1 - p)
+  const raw = C * rate * curve ** exp
+  // Docs: rounded to 5 decimal places; anything smaller than 0.00001 → 0
   return Math.round(raw * 1e5) / 1e5
+}
+
+/**
+ * Parse fd from getClobMarketInfo into PolymarketFeeParams.
+ * Returns null if fd is missing / unusable (caller should fall back + log).
+ */
+export function feeParamsFromClobFd(
+  fd: ClobFeeDetails | null | undefined,
+): PolymarketFeeParams | null {
+  if (!fd || fd.r == null || !Number.isFinite(fd.r)) return null
+  const exponent = fd.e == null || !Number.isFinite(fd.e) ? 1 : fd.e
+  return {
+    feeRate: fd.r,
+    exponent,
+    takerOnly: fd.to !== false,
+    fromLiveQuery: true,
+  }
 }
 
 function parseJsonArray<T>(raw: string | T[] | undefined | null): T[] {
@@ -126,7 +186,6 @@ async function fetchTokenAsk(tokenId: string): Promise<{
   const ask = bestAskFromBook(book)
   if (ask) return { price: ask.price, size: ask.size }
 
-  // Fallback: CLOB /price side=buy (documented as buy-side quote)
   const quote = await clobGet<{ price?: string }>(
     `/price?token_id=${encodeURIComponent(tokenId)}&side=buy`,
   )
@@ -138,11 +197,37 @@ async function fetchTokenAsk(tokenId: string): Promise<{
 }
 
 /**
+ * Live fee curve for a market via getClobMarketInfo.
+ * Endpoint: GET /clob-markets/{condition_id}
+ * Docs: https://docs.polymarket.com/api-reference/markets/get-clob-market-info
+ */
+export async function fetchPolymarketFeeParams(
+  conditionId: string,
+): Promise<PolymarketFeeParams> {
+  try {
+    const info = await clobGet<ClobMarketInfo>(
+      `/clob-markets/${encodeURIComponent(conditionId)}`,
+    )
+    const live = feeParamsFromClobFd(info.fd)
+    if (live) return live
+    console.warn(
+      `[polymarket] getClobMarketInfo(${conditionId}) returned unusable fd=`,
+      info.fd,
+      '— using POLYMARKET_FEE_FALLBACK',
+    )
+    return { ...POLYMARKET_FEE_FALLBACK }
+  } catch (e) {
+    console.warn(
+      `[polymarket] getClobMarketInfo(${conditionId}) failed (${e instanceof Error ? e.message : e}) — using POLYMARKET_FEE_FALLBACK`,
+    )
+    return { ...POLYMARKET_FEE_FALLBACK }
+  }
+}
+
+/**
  * Fetch a Polymarket market by condition ID.
  *
  * @param alignedOutcomeLabel — outcome name that corresponds to Kalshi YES
- *   (e.g. "Seahawks"). Required for two-outcome moneylines so yes/no map
- *   correctly for cross-venue arb.
  * @param eventSlug — optional Gamma event slug (preferred lookup path).
  */
 export async function fetchPolymarketMarket(
@@ -191,14 +276,11 @@ export async function fetchPolymarketMarket(
   }
   const oppositeIdx = alignedIdx === 0 ? 1 : 0
 
-  const [yesAsk, noAsk] = await Promise.all([
+  const [yesAsk, noAsk, polymarketFee] = await Promise.all([
     fetchTokenAsk(tokenIds[alignedIdx]!),
     fetchTokenAsk(tokenIds[oppositeIdx]!),
+    fetchPolymarketFeeParams(market.conditionId),
   ])
-
-  const feeRate =
-    market.feeSchedule?.rate ??
-    (market.feesEnabled === false ? 0 : POLYMARKET_SPORTS_TAKER_FEE_RATE)
 
   const resolutionRules = (market.description || '').trim()
   const resolutionSource = (market.resolutionSource || '').trim()
@@ -215,6 +297,6 @@ export async function fetchPolymarketMarket(
     resolutionSource:
       resolutionSource || 'Polymarket market description (UMA / resolvedBy)',
     lastUpdated: market.updatedAt ? new Date(market.updatedAt) : new Date(),
-    feeRateHint: feeRate,
+    polymarketFee,
   }
 }

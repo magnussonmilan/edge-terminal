@@ -98,6 +98,5 @@ export async function fetchKalshiMarket(ticker: string): Promise<MarketPrice> {
     resolutionRules,
     resolutionSource: 'Kalshi rules_primary / rules_secondary (exchange determination)',
     lastUpdated: m.updated_time ? new Date(m.updated_time) : new Date(),
-    feeRateHint: KALSHI_TAKER_FEE_COEFF,
   }
 }

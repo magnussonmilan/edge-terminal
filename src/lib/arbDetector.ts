@@ -7,18 +7,22 @@
  * HARD RULE: never flag a pair with verifiedEquivalent !== true — mismatched
  * resolution rules are the primary way "arb" becomes a real loss.
  *
- * Fee sources (checked 2026-07-10 against published docs):
+ * Fee sources:
  * - Kalshi general taker: round_up_cent(0.07 × C × P × (1−P))
- * - Polymarket sports taker: round_5dp(C × 0.05 × p × (1−p))
+ *   (kalshi.com fee schedule PDF — unchanged this pass)
+ * - Polymarket: per-market live params from getClobMarketInfo
+ *   GET /clob-markets/{condition_id} → fd.{r,e,to}
+ *   fee = C × r × (p×(1−p))^e   (docs.polymarket.com/trading/fees +
+ *   @polymarket/clob-client-v2 adjustBuyAmountForFees)
  */
 
 import { kalshiTakerFeeDollars } from './kalshiClient'
 import {
   polymarketTakerFeeDollars,
-  POLYMARKET_SPORTS_TAKER_FEE_RATE,
+  POLYMARKET_FEE_FALLBACK,
 } from './polymarketClient'
 import type { MatchedEventPair } from './eventMatcher'
-import type { MarketPrice } from './marketPrice'
+import type { MarketPrice, PolymarketFeeParams } from './marketPrice'
 
 export type ArbStrategy =
   | 'buy-yes-kalshi-no-polymarket'
@@ -41,6 +45,7 @@ export interface ArbOpportunity {
     kalshiLeg: { side: 'yes' | 'no'; price: number; fee: number }
     polymarketLeg: { side: 'yes' | 'no'; price: number; fee: number }
     settlementValue: number
+    polymarketFeeParams: PolymarketFeeParams
   }
 }
 
@@ -55,15 +60,26 @@ function minLiquidity(
   return Math.min(a, b)
 }
 
+function resolvePolyFeeParams(
+  polymarket: MarketPrice | null | undefined,
+  override?: PolymarketFeeParams,
+): PolymarketFeeParams {
+  if (override) return override
+  if (polymarket?.polymarketFee) return polymarket.polymarketFee
+  console.warn(
+    '[arb] Polymarket fee params missing on MarketPrice — using POLYMARKET_FEE_FALLBACK',
+  )
+  return { ...POLYMARKET_FEE_FALLBACK }
+}
+
 /**
- * Evaluate one strategy for C=1 contract. Returns null if not profitable
- * after fees (net ≤ 0).
+ * Evaluate one strategy for C=1 contract.
  */
 export function evaluateArbLegs(
   kalshiPrice: number,
   polymarketPrice: number,
   strategy: ArbStrategy,
-  polymarketFeeRate: number = POLYMARKET_SPORTS_TAKER_FEE_RATE,
+  polymarketFeeParams: PolymarketFeeParams = POLYMARKET_FEE_FALLBACK,
   contracts = 1,
 ): {
   grossSpread: number
@@ -76,7 +92,7 @@ export function evaluateArbLegs(
   const polymarketFee = polymarketTakerFeeDollars(
     contracts,
     polymarketPrice,
-    polymarketFeeRate,
+    polymarketFeeParams,
   )
   const grossSpread = kalshiPrice + polymarketPrice
   const totalCost = grossSpread + kalshiFee + polymarketFee
@@ -100,6 +116,7 @@ export function evaluateArbLegs(
         fee: polymarketFee,
       },
       settlementValue: SETTLEMENT,
+      polymarketFeeParams,
     },
   }
 }
@@ -119,8 +136,7 @@ export function detectArbitrage(
     return null
   }
 
-  const polyFeeRate =
-    polymarket.feeRateHint ?? POLYMARKET_SPORTS_TAKER_FEE_RATE
+  const polyFees = resolvePolyFeeParams(polymarket)
 
   const candidates: Array<{
     strategy: ArbStrategy
@@ -149,7 +165,7 @@ export function detectArbitrage(
       c.kalshiPrice,
       c.polymarketPrice,
       c.strategy,
-      polyFeeRate,
+      polyFees,
       1,
     )
     if (ev.netProfitPerDollar <= 0) continue
