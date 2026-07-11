@@ -31,6 +31,10 @@ export function setCoverProbabilityMode(mode: CoverProbabilityMode): void {
  *
  * Weight may be a global constant (fitModelWeight) or a per-game dynamic
  * value from marketRegression.matchupModelWeight — same blend formula either way.
+ * Pass `modelWeight` to override; omit to use DEFAULT_MODEL_WEIGHT.
+ * For the calibrated v3 constant, callers should pass CALIBRATED_V3.modelWeight
+ * (see getCalibratedModelWeight in unifiedComparison) — do not assume this
+ * default equals the calibrated file.
  */
 export function blendWithMarket(
   modelSpread: number,
@@ -39,6 +43,19 @@ export function blendWithMarket(
 ): number {
   const w = Math.max(0, Math.min(1, modelWeight))
   return w * modelSpread + (1 - w) * marketSpread
+}
+
+/**
+ * Same formula as blendWithMarket — explicit name for UI slider overrides.
+ * Operates on spread; convert to moneyline via spreadToWinProb for cross-venue UI.
+ * weight 0 = pure market, 1 = pure model. Clamped to [0, 1].
+ */
+export function blendWithAdjustableWeight(
+  modelSpread: number,
+  marketSpread: number,
+  weight: number,
+): number {
+  return blendWithMarket(modelSpread, marketSpread, weight)
 }
 
 /**

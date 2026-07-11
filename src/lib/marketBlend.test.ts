@@ -14,6 +14,11 @@ describe('marketBlend', () => {
     expect(blendWithMarket(7, 3, 0.5)).toBe(5)
   })
 
+  it('blendWithAdjustableWeight is the same formula with explicit slider semantics', async () => {
+    const { blendWithAdjustableWeight } = await import('./marketBlend')
+    expect(blendWithAdjustableWeight(7, 3, 0.15)).toBe(blendWithMarket(7, 3, 0.15))
+  })
+
   it('fits cover model slope positive when edge predicts covers', () => {
     const rows = []
     for (let i = 0; i < 80; i++) {

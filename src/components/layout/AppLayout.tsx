@@ -26,6 +26,8 @@ export function AppLayout() {
               <NavItem to="/backtest">Backtest</NavItem>
               <NavItem to="/arb">Arb</NavItem>
               <NavItem to="/lines">Lines</NavItem>
+              <NavItem to="/compare">Compare</NavItem>
+              <NavItem to="/rankings">Rankings</NavItem>
               <NavItem to="/mlb-elo">MLB Elo</NavItem>
               <NavItem to="/how-it-works">How it works</NavItem>
               <NavItem to="/portfolio">Portfolio</NavItem>

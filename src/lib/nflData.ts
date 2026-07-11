@@ -186,6 +186,23 @@ export function getPredictions(season: number, week: number): GamePrediction[] {
     )
 }
 
+export function getPredictionById(gameId: string): GamePrediction | null {
+  const hit = ALL_PREDICTIONS.find((p) => p.gameId === gameId)
+  if (!hit) return null
+  const weather = WEATHER_BY_GAME.get(hit.gameId)
+  if (!weather) return hit
+  return { ...hit, weather, weatherAdjustment: hit.weatherAdjustment ?? 0 }
+}
+
+export function getV3IndependentById(gameId: string): V3GamePrediction | null {
+  return PREDICTIONS_V3_INDEPENDENT.find((p) => p.gameId === gameId) ?? null
+}
+
+/** Calibrated blend weight from calibrated-v3.json (model share; rest is market). */
+export function getCalibratedModelWeight(): number {
+  return CALIBRATED_V3.modelWeight
+}
+
 /** Rating trajectory for a team across a season (week → rating). */
 export function getTeamTrajectory(
   season: number,

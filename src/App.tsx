@@ -12,6 +12,14 @@ import { HowItWorksPage } from '@/pages/HowItWorksPage'
 import { ArbMonitorPage } from '@/pages/ArbMonitorPage'
 import { LinesPage } from '@/pages/LinesPage'
 import { MlbEloPage } from '@/pages/MlbEloPage'
+import { ComparePage } from '@/pages/ComparePage'
+import { RankingsIndexPage } from '@/pages/rankings/RankingsIndexPage'
+import { PowerRatingsPage } from '@/pages/rankings/PowerRatingsPage'
+import { QbRankingsPage } from '@/pages/rankings/QbRankingsPage'
+import { EpaTiersPage } from '@/pages/rankings/EpaTiersPage'
+import { SosPage } from '@/pages/rankings/SosPage'
+import { TendenciesPage } from '@/pages/rankings/TendenciesPage'
+import { WinTotalsPage } from '@/pages/rankings/WinTotalsPage'
 import { Skeleton } from '@/components/ui/skeleton'
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -62,6 +70,14 @@ export default function App() {
         <Route path="/arb" element={<ArbMonitorPage />} />
         <Route path="/lines" element={<LinesPage />} />
         <Route path="/mlb-elo" element={<MlbEloPage />} />
+        <Route path="/compare" element={<ComparePage />} />
+        <Route path="/rankings" element={<RankingsIndexPage />} />
+        <Route path="/rankings/power" element={<PowerRatingsPage />} />
+        <Route path="/rankings/qb" element={<QbRankingsPage />} />
+        <Route path="/rankings/epa" element={<EpaTiersPage />} />
+        <Route path="/rankings/sos" element={<SosPage />} />
+        <Route path="/rankings/tendencies" element={<TendenciesPage />} />
+        <Route path="/rankings/win-totals" element={<WinTotalsPage />} />
         <Route path="/how-it-works" element={<HowItWorksPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
