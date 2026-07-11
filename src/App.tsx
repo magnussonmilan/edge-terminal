@@ -9,6 +9,7 @@ import { PredictionsPage } from '@/pages/PredictionsPage'
 import { StacksPage } from '@/pages/StacksPage'
 import { BacktestPage } from '@/pages/BacktestPage'
 import { HowItWorksPage } from '@/pages/HowItWorksPage'
+import { ArbMonitorPage } from '@/pages/ArbMonitorPage'
 import { Skeleton } from '@/components/ui/skeleton'
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -56,6 +57,7 @@ export default function App() {
         <Route path="/predictions" element={<PredictionsPage />} />
         <Route path="/stacks" element={<StacksPage />} />
         <Route path="/backtest" element={<BacktestPage />} />
+        <Route path="/arb" element={<ArbMonitorPage />} />
         <Route path="/how-it-works" element={<HowItWorksPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
