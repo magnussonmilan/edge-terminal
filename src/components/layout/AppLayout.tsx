@@ -25,6 +25,7 @@ export function AppLayout() {
               <NavItem to="/stacks">Stacks</NavItem>
               <NavItem to="/backtest">Backtest</NavItem>
               <NavItem to="/arb">Arb</NavItem>
+              <NavItem to="/lines">Lines</NavItem>
               <NavItem to="/how-it-works">How it works</NavItem>
               <NavItem to="/portfolio">Portfolio</NavItem>
             </div>

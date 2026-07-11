@@ -5,7 +5,11 @@
  * - Free tier: ~500 credits/month; featured markets (h2h/spreads/totals) are available
  *   on current plans including free, but credit burn is markets × regions per call.
  * - This module requests regions=us & markets=spreads only → 1 credit per poll.
+ * - Multi-market line shopping lives in oddsAggregator.ts (~3 credits / poll).
  * - Store ODDS_API_KEY in env / GitHub Actions secrets — never commit the key.
+ *
+ * ToS: intended for apps/dashboards; do not resell the raw feed as a data product
+ * (https://the-odds-api.com/terms-and-conditions.html).
  */
 
 import type { BookOdds, Trade } from '@/types/trade'
