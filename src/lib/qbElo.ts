@@ -4,6 +4,27 @@
  * Inspired by the public FiveThirtyEight NFL / QB-Elo methodology writeups
  * (fivethirtyeight.com methodology pages) — implemented independently here.
  * Do not treat this as a port of any third-party private codebase.
+ *
+ * ---------------------------------------------------------------------------
+ * Tunable inventory (calibrated via scripts/calibrate-v3-model.ts on train
+ * only; validation never selects). Defaults below are the pre-calibration
+ * assumptions.
+ *
+ *   gameWeight            — per-game K-factor: weight on this game's Elo
+ *                           performance observation in updateQbRating (was 0.35)
+ *   careerWeightCap       — max pull toward the QB's own rolling career avg
+ *                           (was 0.55); grows with gamesPlayed toward this cap
+ *   careerSampleHalfLife  — gamesPlayed scale in careerWeight =
+ *                           min(cap, 0.08 + g/(g+halfLife)) (was 24)
+ *   rookiePremiumMax      — Elo premium for #1 overall vs team prior (was 120)
+ *   rookieDecayPickScale  — exponential pick decay for that premium:
+ *                           exp(-(pick-1)/scale) (was 40)
+ *   wepaToEloScale        — WEPA → game Elo observation: mean + scale*WEPA
+ *                           (was 8)
+ *
+ * Not tuned here (scale anchors, verified separately):
+ *   QB_ELO_TO_POINTS, QB_ELO_MEAN, QB_ELO_REPLACEMENT
+ * ---------------------------------------------------------------------------
  */
 
 /** Elo points per 1 point of expected game margin (538-style ballpark). */
@@ -14,6 +35,40 @@ export const QB_ELO_MEAN = 1500
 
 /** Soft floor for a pure backup / replacement-level starter. */
 export const QB_ELO_REPLACEMENT = 1450
+
+export interface QbEloParams {
+  gameWeight: number
+  careerWeightCap: number
+  careerSampleHalfLife: number
+  rookiePremiumMax: number
+  rookieDecayPickScale: number
+  wepaToEloScale: number
+}
+
+/** Pre-calibration defaults (historical assumed values). */
+export const DEFAULT_QB_ELO_PARAMS: QbEloParams = {
+  gameWeight: 0.35,
+  careerWeightCap: 0.55,
+  careerSampleHalfLife: 24,
+  rookiePremiumMax: 120,
+  rookieDecayPickScale: 40,
+  wepaToEloScale: 8,
+}
+
+/** Mutable active params — set by calibration before rebuilding ratings. */
+let activeParams: QbEloParams = { ...DEFAULT_QB_ELO_PARAMS }
+
+export function getQbEloParams(): QbEloParams {
+  return { ...activeParams }
+}
+
+export function setQbEloParams(partial: Partial<QbEloParams>): void {
+  activeParams = { ...activeParams, ...partial }
+}
+
+export function resetQbEloParams(): void {
+  activeParams = { ...DEFAULT_QB_ELO_PARAMS }
+}
 
 export interface QbRating {
   playerId: string
@@ -27,47 +82,41 @@ export interface QbRating {
 /**
  * Seed a rookie QB's initial Elo from draft position, decaying exponentially
  * toward the team's prior passing-game level (not a flat league constant).
- *
- * draftPosition: 1 = first overall. Undrafted / unknown → treat as 200+.
- * teamPriorPassingLevel: Elo-scale estimate of the team's recent passing strength.
- *
- * Gap closes faster than linear: early picks start well above team prior;
- * late picks start near team prior / replacement.
  */
 export function seedRookieQbRating(
   draftPosition: number,
   teamPriorPassingLevel: number,
+  params: QbEloParams = activeParams,
 ): number {
   const pick = Math.max(1, draftPosition || 250)
-  // Day-1 #1 overall premium ≈ +120 Elo vs team prior; decays with pick number.
-  // Exponential in pick: premium = 120 * exp(-(pick-1)/40)
-  const premium = 120 * Math.exp(-(pick - 1) / 40)
+  const premium =
+    params.rookiePremiumMax *
+    Math.exp(-(pick - 1) / params.rookieDecayPickScale)
   const towardTeam = teamPriorPassingLevel || QB_ELO_MEAN
-  // Blend: high picks sit above team prior; late picks hug max(teamPrior, replacement)
   const floor = Math.max(QB_ELO_REPLACEMENT, towardTeam - 40)
-  const seeded = towardTeam + premium * (1 - Math.min(1, (pick - 1) / 180))
+  const seeded =
+    towardTeam + premium * (1 - Math.min(1, (pick - 1) / 180))
   return Math.max(floor, Math.min(QB_ELO_MEAN + 200, seeded))
 }
 
 /**
  * Veteran update: blend this game's performance with mean-reversion toward
  * the QB's OWN rolling career average (not league average).
- *
- * gamePerformance: Elo-scale value implied by this game's weighted EPA
- *   (see qbGameEpaToEloPerformance).
- * gamesPlayed: career starts before this game — more history → stronger pull
- *   to careerRollingAverage, weaker single-game shock.
  */
 export function updateQbRating(
   prior: number,
   gamePerformance: number,
   careerRollingAverage: number,
   gamesPlayed: number,
+  params: QbEloParams = activeParams,
 ): number {
   const g = Math.max(0, gamesPlayed)
-  // Career pull grows with sample; caps so a single game still moves the needle.
-  const careerWeight = Math.min(0.55, 0.08 + g / (g + 24))
-  const gameWeight = 0.35
+  const half = Math.max(1, params.careerSampleHalfLife)
+  const careerWeight = Math.min(
+    params.careerWeightCap,
+    0.08 + g / (g + half),
+  )
+  const gameWeight = Math.max(0.05, Math.min(0.6, params.gameWeight))
   const priorWeight = Math.max(0.15, 1 - careerWeight - gameWeight)
 
   const next =
@@ -75,7 +124,6 @@ export function updateQbRating(
     gameWeight * gamePerformance +
     careerWeight * careerRollingAverage
 
-  // Soft clamp to a sane NFL QB band
   return Math.max(1300, Math.min(1900, next))
 }
 
@@ -83,9 +131,9 @@ export function updateQbRating(
 export function qbGameEpaToEloPerformance(
   weightedEpa: number,
   leagueGameEpaMean = 0,
+  params: QbEloParams = activeParams,
 ): number {
-  // ~1 WEPA above mean ≈ +8 Elo for that game observation (tunable)
-  const delta = (weightedEpa - leagueGameEpaMean) * 8
+  const delta = (weightedEpa - leagueGameEpaMean) * params.wepaToEloScale
   return QB_ELO_MEAN + delta
 }
 
@@ -96,7 +144,6 @@ export function qbEloToPointDelta(qbElo: number): number {
 
 /**
  * Point delta for starting QB vs a backup/replacement when the starter is out.
- * Used in place of a flat QB-value subtraction for the starting-QB case.
  */
 export function qbInjuryPointSwing(
   starterElo: number,

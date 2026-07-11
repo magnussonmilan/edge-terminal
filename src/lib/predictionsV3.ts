@@ -13,6 +13,7 @@ import { calculateStarRating } from './keyNumbers'
 import {
   blendWithMarket,
   estimateCoverProbability,
+  selectAndScoreMarketBlendedGame,
   type CoverModelCoeffs,
 } from './marketBlend'
 import { effectiveTeamRating, type QbStartInfo } from './teamEloV2'
@@ -29,6 +30,8 @@ export interface V3GamePrediction extends GamePrediction {
   coverProbability?: number
   homeQbElo?: number | null
   awayQbElo?: number | null
+  /** How playability was decided for market-blended rows. */
+  playabilityMode?: 'legacy-blended-stars' | 'independent-selection'
 }
 
 export function buildIndependentV3Prediction(
@@ -52,9 +55,57 @@ export function buildIndependentV3Prediction(
 }
 
 /**
- * Market-blended prediction: stars / ATS scoring use the blended spread as
- * modelSpread so backtest answers "does the blend add value on the line?"
- * independentSpread is retained for audit.
+ * Legacy market-blended: playability from star rating on the *blended* spread
+ * (mechanically shrinks sample as modelWeight → market). Kept for before/after.
+ */
+export function buildMarketBlendedV3PredictionLegacy(
+  independent: V3GamePrediction,
+  modelWeight: number,
+  coverCoeffs: CoverModelCoeffs,
+): V3GamePrediction {
+  const posted = independent.postedSpread
+  if (posted == null || !independent.postedSpreadIsHistorical) {
+    return {
+      ...independent,
+      variant: 'v3-market-blended',
+      independentSpread: independent.modelSpread,
+      playabilityMode: 'legacy-blended-stars',
+    }
+  }
+
+  const independentSpread =
+    independent.independentSpread ?? independent.modelSpread
+  const blended = blendWithMarket(independentSpread, posted, modelWeight)
+  const starRating = calculateStarRating(blended, posted)
+  const coverProbability = estimateCoverProbability(
+    blended,
+    posted,
+    coverCoeffs,
+  )
+
+  const base: Omit<V3GamePrediction, 'blurb'> = {
+    ...independent,
+    variant: 'v3-market-blended',
+    modelSpread: blended,
+    independentSpread,
+    starRating,
+    coverProbability,
+    playabilityMode: 'legacy-blended-stars',
+  }
+
+  const favoredHome = blended >= 0
+  const team = favoredHome ? independent.homeTeam : independent.awayTeam
+  const mag = Math.abs(blended).toFixed(1)
+  const blurb = starRating.playable
+    ? `Legacy blend favors ${team} by ${mag} (playability from blended differential).`
+    : `Legacy blend ${mag} for ${team} — not playable on blended differential.`
+
+  return { ...base, blurb }
+}
+
+/**
+ * Redesigned market-blended: select on independent star disagreement, score
+ * with blended spread + coverProbability (no second differential threshold).
  */
 export function buildMarketBlendedV3Prediction(
   independent: V3GamePrediction,
@@ -67,13 +118,24 @@ export function buildMarketBlendedV3Prediction(
       ...independent,
       variant: 'v3-market-blended',
       independentSpread: independent.modelSpread,
+      playabilityMode: 'independent-selection',
     }
   }
 
-  const independentSpread = independent.independentSpread ?? independent.modelSpread
+  const independentSpread =
+    independent.independentSpread ?? independent.modelSpread
   const blended = blendWithMarket(independentSpread, posted, modelWeight)
-  const starRating = calculateStarRating(blended, posted)
-  const coverProbability = estimateCoverProbability(blended, posted, coverCoeffs)
+  const { selected, coverProbability } = selectAndScoreMarketBlendedGame(
+    independent,
+    blended,
+    coverCoeffs,
+  )
+
+  // Preserve independent star magnitudes for diagnostics; playable follows selection.
+  const starRating = {
+    ...independent.starRating,
+    playable: selected,
+  }
 
   const base: Omit<V3GamePrediction, 'blurb'> = {
     ...independent,
@@ -81,15 +143,18 @@ export function buildMarketBlendedV3Prediction(
     modelSpread: blended,
     independentSpread,
     starRating,
-    coverProbability,
+    coverProbability: coverProbability ?? undefined,
+    playabilityMode: 'independent-selection',
   }
 
   const favoredHome = blended >= 0
   const team = favoredHome ? independent.homeTeam : independent.awayTeam
   const mag = Math.abs(blended).toFixed(1)
-  const blurb = independent.starRating.playable
-    ? `Market-blended model favors ${team} by ${mag} (independent was ${independentSpread.toFixed(1)}; weight=${modelWeight.toFixed(2)}). Separate from the fully independent backtest.`
-    : `Market-blended number ${mag} for ${team} — not a playable star signal on this line.`
+  const pCover =
+    coverProbability != null ? (coverProbability * 100).toFixed(0) : '—'
+  const blurb = selected
+    ? `Selected via independent disagreement; blended favors ${team} by ${mag} (P(cover)≈${pCover}%).`
+    : `Not selected — independent model lacks a playable star vs the market.`
 
   return { ...base, blurb }
 }

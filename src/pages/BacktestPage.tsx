@@ -325,6 +325,59 @@ export function BacktestPage() {
               Breakeven at −110 is {(BREAKEVEN_WIN_RATE * 100).toFixed(1)}%.{' '}
               {v3Split.note}
             </p>
+            {v3.changes && (
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                  <p className="font-semibold text-slate-900">
+                    Change A — QB-Elo calibration
+                  </p>
+                  <p className="mt-1 tabular-nums">
+                    Holdout ATS{' '}
+                    {(
+                      (v3.changes.qbEloCalibration?.before.validationWinRate ??
+                        0) * 100
+                    ).toFixed(1)}
+                    % →{' '}
+                    {(
+                      (v3.changes.qbEloCalibration?.after.validationWinRate ??
+                        0) * 100
+                    ).toFixed(1)}
+                    %
+                    {v3.changes.qbEloCalibration?.helpedHoldout
+                      ? ' (helped)'
+                      : ' (no meaningful holdout gain)'}
+                  </p>
+                </div>
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                  <p className="font-semibold text-slate-900">
+                    Change B — blend playability redesign
+                  </p>
+                  <p className="mt-1 tabular-nums">
+                    Holdout n{' '}
+                    {v3.changes.marketBlendPlayability?.before.validationGames ??
+                      0}{' '}
+                    →{' '}
+                    {v3.changes.marketBlendPlayability?.after.validationGames ??
+                      0}
+                    {' · '}
+                    ATS{' '}
+                    {(
+                      (v3.changes.marketBlendPlayability?.before
+                        .validationWinRate ?? 0) * 100
+                    ).toFixed(1)}
+                    % →{' '}
+                    {(
+                      (v3.changes.marketBlendPlayability?.after
+                        .validationWinRate ?? 0) * 100
+                    ).toFixed(1)}
+                    %
+                  </p>
+                  <p className="mt-1 text-slate-500">
+                    {v3.changes.marketBlendPlayability?.note}
+                  </p>
+                </div>
+              </div>
+            )}
           </>
         )}
       </section>

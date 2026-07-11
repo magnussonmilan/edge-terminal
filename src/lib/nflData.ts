@@ -41,6 +41,21 @@ export type V3CalibrationReport = {
   v2: ModelSummary
   v3Independent: ModelSummary
   v3MarketBlended: ModelSummary
+  changes?: {
+    qbEloCalibration?: {
+      before: ModelSummary
+      after: ModelSummary
+      helpedHoldout?: boolean
+    }
+    marketBlendPlayability?: {
+      before: ModelSummary
+      after: ModelSummary
+      sampleGrew?: boolean
+      note?: string
+      beforeMode?: string
+      afterMode?: string
+    }
+  }
 }
 
 type ModelSummary = {

@@ -1,0 +1,131 @@
+{
+  "generatedAt": "2026-07-11T00:33:47.032Z",
+  "defaults": {
+    "gameWeight": 0.35,
+    "careerWeightCap": 0.55,
+    "careerSampleHalfLife": 24,
+    "rookiePremiumMax": 120,
+    "rookieDecayPickScale": 40,
+    "wepaToEloScale": 8
+  },
+  "fitted": {
+    "gameWeight": 0.3,
+    "careerWeightCap": 0.45,
+    "careerSampleHalfLife": 24,
+    "rookiePremiumMax": 120,
+    "rookieDecayPickScale": 30,
+    "wepaToEloScale": 8
+  },
+  "log": [
+    {
+      "step": "qbElo-round-1",
+      "coefficient": "gameWeight",
+      "oldValue": 0.35,
+      "newValue": 0.3,
+      "trainWinRateBefore": 0.48512396694214877,
+      "trainWinRateAfter": 0.48872858431018934,
+      "validationWinRateBefore": 0.4805194805194805,
+      "validationWinRateAfter": 0.46920821114369504,
+      "note": "Adopted on train win rate."
+    },
+    {
+      "step": "qbElo-round-1",
+      "coefficient": "careerWeightCap",
+      "oldValue": 0.55,
+      "newValue": 0.45,
+      "trainWinRateBefore": 0.48872858431018934,
+      "trainWinRateAfter": 0.48899865289627303,
+      "validationWinRateBefore": 0.46920821114369504,
+      "validationWinRateAfter": 0.4678362573099415,
+      "note": "Adopted on train win rate."
+    },
+    {
+      "step": "qbElo-round-1",
+      "coefficient": "rookiePremiumMax",
+      "oldValue": 120,
+      "newValue": 120,
+      "trainWinRateBefore": 0.48899865289627303,
+      "trainWinRateAfter": 0.48899865289627303,
+      "validationWinRateBefore": 0.4678362573099415,
+      "validationWinRateAfter": 0.4678362573099415,
+      "note": "No train-win-rate gain across candidates — kept original."
+    },
+    {
+      "step": "qbElo-round-1",
+      "coefficient": "rookieDecayPickScale",
+      "oldValue": 40,
+      "newValue": 30,
+      "trainWinRateBefore": 0.48899865289627303,
+      "trainWinRateAfter": 0.48986942818550205,
+      "validationWinRateBefore": 0.4678362573099415,
+      "validationWinRateAfter": 0.4738372093023256,
+      "note": "Adopted on train win rate."
+    },
+    {
+      "step": "qbElo-round-1",
+      "coefficient": "wepaToEloScale",
+      "oldValue": 8,
+      "newValue": 8,
+      "trainWinRateBefore": 0.48986942818550205,
+      "trainWinRateAfter": 0.48986942818550205,
+      "validationWinRateBefore": 0.4738372093023256,
+      "validationWinRateAfter": 0.4738372093023256,
+      "note": "No train-win-rate gain across candidates — kept original."
+    },
+    {
+      "step": "qbElo-round-2",
+      "coefficient": "gameWeight",
+      "oldValue": 0.3,
+      "newValue": 0.3,
+      "trainWinRateBefore": 0.48986942818550205,
+      "trainWinRateAfter": 0.48986942818550205,
+      "validationWinRateBefore": 0.4738372093023256,
+      "validationWinRateAfter": 0.4738372093023256,
+      "note": "No train-win-rate gain across candidates — kept original."
+    },
+    {
+      "step": "qbElo-round-2",
+      "coefficient": "careerWeightCap",
+      "oldValue": 0.45,
+      "newValue": 0.45,
+      "trainWinRateBefore": 0.48986942818550205,
+      "trainWinRateAfter": 0.48986942818550205,
+      "validationWinRateBefore": 0.4738372093023256,
+      "validationWinRateAfter": 0.4738372093023256,
+      "note": "No train-win-rate gain across candidates — kept original."
+    },
+    {
+      "step": "qbElo-round-2",
+      "coefficient": "rookiePremiumMax",
+      "oldValue": 120,
+      "newValue": 120,
+      "trainWinRateBefore": 0.48986942818550205,
+      "trainWinRateAfter": 0.48986942818550205,
+      "validationWinRateBefore": 0.4738372093023256,
+      "validationWinRateAfter": 0.4738372093023256,
+      "note": "No train-win-rate gain across candidates — kept original."
+    },
+    {
+      "step": "qbElo-round-2",
+      "coefficient": "rookieDecayPickScale",
+      "oldValue": 30,
+      "newValue": 30,
+      "trainWinRateBefore": 0.48986942818550205,
+      "trainWinRateAfter": 0.48986942818550205,
+      "validationWinRateBefore": 0.4738372093023256,
+      "validationWinRateAfter": 0.4738372093023256,
+      "note": "No train-win-rate gain across candidates — kept original."
+    },
+    {
+      "step": "qbElo-round-2",
+      "coefficient": "wepaToEloScale",
+      "oldValue": 8,
+      "newValue": 8,
+      "trainWinRateBefore": 0.48986942818550205,
+      "trainWinRateAfter": 0.48986942818550205,
+      "validationWinRateBefore": 0.4738372093023256,
+      "validationWinRateAfter": 0.4738372093023256,
+      "note": "No train-win-rate gain across candidates — kept original."
+    }
+  ]
+}

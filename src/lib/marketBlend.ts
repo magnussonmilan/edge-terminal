@@ -7,6 +7,8 @@
  * never conflate "beats the market cold" with "adds value on top of the line."
  */
 
+import type { GamePrediction } from './predictions'
+
 /** Default blend weight on the model (rest on market). Fit via calibration. */
 export const DEFAULT_MODEL_WEIGHT = 0.35
 
@@ -141,4 +143,36 @@ export function fitModelWeight(
   }
 
   return { weight: bestW, trainWinRate: bestWr }
+}
+
+/**
+ * Decouple selection from the blend.
+ *
+ * Selection: independent model's star rating vs market (genuine disagreement
+ * before blending dilutes the differential).
+ * Signal: cover probability from the blended spread vs posted — what the
+ * blend + cover model are for. Does not re-apply a differential threshold
+ * on the already-shrunk blended number.
+ */
+export function selectAndScoreMarketBlendedGame(
+  independent: GamePrediction,
+  blendedSpread: number,
+  coeffs: CoverModelCoeffs = DEFAULT_COVER_COEFFS,
+): { selected: boolean; coverProbability: number | null } {
+  const posted = independent.postedSpread
+  if (
+    posted == null ||
+    !independent.postedSpreadIsHistorical ||
+    independent.homeScore == null
+  ) {
+    return { selected: false, coverProbability: null }
+  }
+
+  const selected = independent.starRating.playable
+  const coverProbability = estimateCoverProbability(
+    blendedSpread,
+    posted,
+    coeffs,
+  )
+  return { selected, coverProbability }
 }

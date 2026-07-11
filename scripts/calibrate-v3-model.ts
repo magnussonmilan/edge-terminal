@@ -22,12 +22,16 @@ import {
   type CoverModelCoeffs,
 } from '../src/lib/marketBlend.ts'
 import {
+  DEFAULT_QB_ELO_PARAMS,
   QB_ELO_MEAN,
   QB_ELO_REPLACEMENT,
+  getQbEloParams,
   qbGameEpaToEloPerformance,
   rollingCareerAverage,
   seedRookieQbRating,
+  setQbEloParams,
   updateQbRating,
+  type QbEloParams,
   type QbRating,
 } from '../src/lib/qbElo.ts'
 import {
@@ -40,6 +44,7 @@ import { buildPreseasonPriors } from '../src/lib/srsPrior.ts'
 import {
   buildIndependentV3Prediction,
   buildMarketBlendedV3Prediction,
+  buildMarketBlendedV3PredictionLegacy,
   type V3GamePrediction,
 } from '../src/lib/predictionsV3.ts'
 import {
@@ -212,6 +217,7 @@ function buildQbLookups(
   games: GameResult[],
   starters: StarterRow[],
   draftPick: Map<string, number>,
+  params: QbEloParams = getQbEloParams(),
 ): {
   qbStart: QbStartLookup
   snapshots: QbRating[]
@@ -222,7 +228,6 @@ function buildQbLookups(
   }
 
   const state = new Map<string, QbState>()
-  /** Elo available BEFORE season/week for team (no look-ahead). */
   const before = new Map<string, QbStartInfo>()
   const snapshots: QbRating[] = []
 
@@ -248,14 +253,13 @@ function buildQbLookups(
         teams.add(g.awayTeam)
       }
 
-      // Snapshot starters BEFORE this week's games
       for (const team of teams) {
         const s = starterByKey.get(`${season}_${week}_${team}`)
         if (!s) continue
         let st = state.get(s.playerId)
         if (!st) {
           const pick = draftPick.get(s.playerId) ?? 100
-          const seeded = seedRookieQbRating(pick, QB_ELO_MEAN)
+          const seeded = seedRookieQbRating(pick, QB_ELO_MEAN, params)
           st = {
             elo: seeded,
             history: [],
@@ -280,14 +284,13 @@ function buildQbLookups(
         })
       }
 
-      // Update AFTER week from that week's EPA (for next week)
       for (const team of teams) {
         const s = starterByKey.get(`${season}_${week}_${team}`)
         if (!s) continue
         const st = state.get(s.playerId)!
-        const perf = qbGameEpaToEloPerformance(s.passingEpa)
+        const perf = qbGameEpaToEloPerformance(s.passingEpa, 0, params)
         const career = rollingCareerAverage(st.history, st.elo)
-        const next = updateQbRating(st.elo, perf, career, st.games)
+        const next = updateQbRating(st.elo, perf, career, st.games, params)
         st.history.push(st.elo)
         if (st.history.length > 48) st.history.shift()
         st.elo = next
@@ -302,6 +305,78 @@ function buildQbLookups(
 
   return { qbStart, snapshots }
 }
+
+function buildIndependentPipeline(
+  games: GameResult[],
+  starters: StarterRow[],
+  draftPick: Map<string, number>,
+  teamEpa: Map<string, number>,
+  params: QbEloParams,
+  logSeasons = false,
+): {
+  independent: V3GamePrediction[]
+  seasonBundles: Record<
+    string,
+    { seed: Record<string, number>; byWeek: Record<number, Record<string, number>> }
+  >
+  snapshots: QbRating[]
+} {
+  setQbEloParams(params)
+  const { qbStart, snapshots } = buildQbLookups(
+    games,
+    starters,
+    draftPick,
+    params,
+  )
+
+  const gameById = new Map(games.map((g) => [g.gameId, g]))
+  const teamWepa: TeamWepaLookup = (gameId, team) => {
+    const g = gameById.get(gameId)
+    if (!g) return null
+    return teamEpa.get(`${g.season}_${g.week}_${team}`) ?? null
+  }
+
+  let priorFinal: Record<string, TeamRating> = {}
+  const seasonBundles: Record<
+    string,
+    { seed: Record<string, number>; byWeek: Record<number, Record<string, number>> }
+  > = {}
+  const independent: V3GamePrediction[] = []
+
+  for (const season of SEASONS) {
+    const seasonGames = games.filter((g) => g.season === season)
+    const prior = buildPreseasonPriors(priorFinal, [])
+    const seed = prior.ratings
+    for (const g of seasonGames) {
+      if (seed[g.homeTeam] == null) seed[g.homeTeam] = 0
+      if (seed[g.awayTeam] == null) seed[g.awayTeam] = 0
+    }
+
+    const { final, byWeek } = processSeasonRatingsV3(seasonGames, seed, {
+      hfa: HOME_FIELD_ADVANTAGE,
+      qbStart,
+      teamWepa,
+      neutralizeQbInUpdate: true,
+    })
+    seasonBundles[String(season)] = { seed, byWeek }
+    priorFinal = final
+
+    for (const g of seasonGames) {
+      const hb = ratingBeforeWeek(byWeek, g.week, g.homeTeam, seed)
+      const ab = ratingBeforeWeek(byWeek, g.week, g.awayTeam, seed)
+      const hq = qbStart(g.season, g.week, g.homeTeam)
+      const aq = qbStart(g.season, g.week, g.awayTeam)
+      independent.push(
+        buildIndependentV3Prediction(g, hb, ab, hq, aq, HOME_FIELD_ADVANTAGE),
+      )
+    }
+    if (logSeasons) console.log(`Season ${season}: ${seasonGames.length} games rated`)
+  }
+
+  return { independent, seasonBundles, snapshots }
+}
+
+type Summary = ReturnType<typeof summarize>
 
 function summarize(label: string, preds: GamePrediction[]) {
   const train = scoreSeasons(preds, TRAIN)
@@ -336,6 +411,132 @@ function summarize(label: string, preds: GamePrediction[]) {
   }
 }
 
+type QbCalibLogEntry = {
+  step: string
+  coefficient: string
+  oldValue: number
+  newValue: number
+  trainWinRateBefore: number
+  trainWinRateAfter: number
+  validationWinRateBefore: number
+  validationWinRateAfter: number
+  note?: string
+}
+
+const QB_ELO_GRIDS: Array<{ key: keyof QbEloParams; candidates: number[] }> = [
+  { key: 'gameWeight', candidates: [0.2, 0.25, 0.3, 0.35, 0.4, 0.45] },
+  { key: 'careerWeightCap', candidates: [0.35, 0.45, 0.55, 0.65] },
+  { key: 'rookiePremiumMax', candidates: [60, 90, 120, 150] },
+  { key: 'rookieDecayPickScale', candidates: [20, 30, 40, 60] },
+  { key: 'wepaToEloScale', candidates: [4, 6, 8, 10, 12] },
+]
+
+function calibrateQbEloParams(
+  games: GameResult[],
+  starters: StarterRow[],
+  draftPick: Map<string, number>,
+  teamEpa: Map<string, number>,
+): { params: QbEloParams; log: QbCalibLogEntry[]; before: Summary; after: Summary } {
+  let params: QbEloParams = { ...DEFAULT_QB_ELO_PARAMS }
+  const log: QbCalibLogEntry[] = []
+
+  console.log('\n=== QB-Elo parameter calibration (select on train only) ===')
+  let { independent: baselineInd } = buildIndependentPipeline(
+    games,
+    starters,
+    draftPick,
+    teamEpa,
+    params,
+  )
+  const before = summarize('v3-ind BEFORE qb calib', baselineInd)
+  let bestTrain = before.trainWinRate
+  let bestVal = before.validationWinRate
+
+  let round = 0
+  let adoptedInRound = true
+  while (adoptedInRound && round < 4) {
+    round += 1
+    adoptedInRound = false
+    console.log(`\nQB-Elo calib round ${round}…`)
+
+    for (const grid of QB_ELO_GRIDS) {
+      let bestValForParam = params[grid.key]
+      let bestTrainForParam = bestTrain
+      let bestValHoldout = bestVal
+      let improved = false
+
+      for (const candidate of grid.candidates) {
+        if (candidate === params[grid.key]) continue
+        const trial: QbEloParams = { ...params, [grid.key]: candidate }
+        const { independent } = buildIndependentPipeline(
+          games,
+          starters,
+          draftPick,
+          teamEpa,
+          trial,
+        )
+        const train = scoreSeasons(independent, TRAIN)
+        const val = scoreSeasons(independent, VALIDATION)
+        if (train.overallWinRate > bestTrainForParam + 1e-12) {
+          bestTrainForParam = train.overallWinRate
+          bestValForParam = candidate
+          bestValHoldout = val.overallWinRate
+          improved = true
+        }
+      }
+
+      const oldValue = params[grid.key]
+      if (improved && bestValForParam !== oldValue) {
+        const note =
+          bestValHoldout + 0.02 < bestVal
+            ? 'Adopted on train; validation dropped >2pp — still selected on train only (honest log).'
+            : 'Adopted on train win rate.'
+        log.push({
+          step: `qbElo-round-${round}`,
+          coefficient: grid.key,
+          oldValue,
+          newValue: bestValForParam,
+          trainWinRateBefore: bestTrain,
+          trainWinRateAfter: bestTrainForParam,
+          validationWinRateBefore: bestVal,
+          validationWinRateAfter: bestValHoldout,
+          note,
+        })
+        console.log(
+          `  ${grid.key}: ${oldValue} → ${bestValForParam} (train ${pct(bestTrain)} → ${pct(bestTrainForParam)}; val ${pct(bestVal)} → ${pct(bestValHoldout)})`,
+        )
+        params = { ...params, [grid.key]: bestValForParam }
+        bestTrain = bestTrainForParam
+        bestVal = bestValHoldout
+        adoptedInRound = true
+      } else {
+        log.push({
+          step: `qbElo-round-${round}`,
+          coefficient: grid.key,
+          oldValue,
+          newValue: oldValue,
+          trainWinRateBefore: bestTrain,
+          trainWinRateAfter: bestTrain,
+          validationWinRateBefore: bestVal,
+          validationWinRateAfter: bestVal,
+          note: 'No train-win-rate gain across candidates — kept original.',
+        })
+        console.log(`  ${grid.key}: no train gain — keep ${oldValue}`)
+      }
+    }
+  }
+
+  const { independent: afterInd } = buildIndependentPipeline(
+    games,
+    starters,
+    draftPick,
+    teamEpa,
+    params,
+  )
+  const after = summarize('v3-ind AFTER qb calib', afterInd)
+  return { params, log, before, after }
+}
+
 async function main() {
   await mkdir(OUT_DIR, { recursive: true })
 
@@ -353,59 +554,26 @@ async function main() {
   }
 
   const { starters, teamEpa, draftPick } = await loadWeeklyQbAndTeamEpa(SEASONS)
-  const { qbStart, snapshots } = buildQbLookups(games, starters, draftPick)
 
-  const teamWepa: TeamWepaLookup = (gameId, team) => {
-    const g = games.find((x) => x.gameId === gameId)
-    if (!g) return null
-    const v = teamEpa.get(`${g.season}_${g.week}_${team}`)
-    return v ?? null
-  }
+  // --- 1) QB-Elo calibration (independent only) ---
+  const qbCalib = calibrateQbEloParams(games, starters, draftPick, teamEpa)
+  setQbEloParams(qbCalib.params)
 
-  // Season-by-season team ratings
-  let priorFinal: Record<string, TeamRating> = {}
-  const seasonBundles: Record<
-    string,
-    { seed: Record<string, number>; byWeek: Record<number, Record<string, number>> }
-  > = {}
-  const independent: V3GamePrediction[] = []
+  console.log('\nSRS prior: prior-season-decay (fallback — no win-total odds)')
+  const {
+    independent,
+    seasonBundles,
+    snapshots,
+  } = buildIndependentPipeline(
+    games,
+    starters,
+    draftPick,
+    teamEpa,
+    qbCalib.params,
+    true,
+  )
 
-  for (const season of SEASONS) {
-    const seasonGames = games.filter((g) => g.season === season)
-    const prior = buildPreseasonPriors(priorFinal, [])
-    if (season === SEASONS[0]) {
-      console.log(`SRS prior: ${prior.method} — ${prior.note}`)
-    }
-    const seed = prior.ratings
-    // Ensure all teams present
-    for (const g of seasonGames) {
-      if (seed[g.homeTeam] == null) seed[g.homeTeam] = 0
-      if (seed[g.awayTeam] == null) seed[g.awayTeam] = 0
-    }
-
-    const { final, byWeek } = processSeasonRatingsV3(seasonGames, seed, {
-      hfa: HOME_FIELD_ADVANTAGE,
-      qbStart,
-      teamWepa,
-      neutralizeQbInUpdate: true,
-    })
-    seasonBundles[String(season)] = { seed, byWeek }
-    priorFinal = final
-
-    for (const g of seasonGames) {
-      // ratingBeforeWeek: week W reads week W-1 snapshot (or season seed) — no look-ahead
-      const hb = ratingBeforeWeek(byWeek, g.week, g.homeTeam, seed)
-      const ab = ratingBeforeWeek(byWeek, g.week, g.awayTeam, seed)
-      const hq = qbStart(g.season, g.week, g.homeTeam)
-      const aq = qbStart(g.season, g.week, g.awayTeam)
-      independent.push(
-        buildIndependentV3Prediction(g, hb, ab, hq, aq, HOME_FIELD_ADVANTAGE),
-      )
-    }
-    console.log(`Season ${season}: ${seasonGames.length} games rated`)
-  }
-
-  // Fit market blend on TRAIN only
+  // --- 2) Market blend: fit weight + cover on train ---
   const trainRows = independent
     .filter(
       (p) =>
@@ -426,7 +594,6 @@ async function main() {
     `Fitted modelWeight=${modelWeight} (train blended ATS proxy ${pct(blendTrainWr)})`,
   )
 
-  // Cover model on train blended rows
   const coverRows = trainRows.map((r) => {
     const blended =
       modelWeight * r.modelSpread + (1 - modelWeight) * r.postedSpread
@@ -441,43 +608,52 @@ async function main() {
   })
   const coverCoeffs: CoverModelCoeffs = fitCoverModel(coverRows)
 
+  // Before: legacy playability on blended stars; After: independent selection
+  const blendedLegacy = independent.map((p) =>
+    buildMarketBlendedV3PredictionLegacy(p, modelWeight, coverCoeffs),
+  )
   const blended = independent.map((p) =>
     buildMarketBlendedV3Prediction(p, modelWeight, coverCoeffs),
   )
 
   const v2Summary = summarize('v2 (power+stars)', v2Preds)
-  const v3IndSummary = summarize('v3-independent', independent)
-  const v3BlendSummary = summarize('v3-market-blended', blended)
+  const v3IndSummary = summarize('v3-independent (calibrated QB)', independent)
+  const blendBefore = summarize('v3-blend LEGACY playability', blendedLegacy)
+  const blendAfter = summarize('v3-blend NEW playability', blended)
 
   v3IndSummary.beatsV2Holdout =
     v3IndSummary.validationWinRate > v2Summary.validationWinRate + 0.01
-  v3BlendSummary.beatsV2Holdout =
-    v3BlendSummary.validationWinRate > v2Summary.validationWinRate + 0.01
+  blendAfter.beatsV2Holdout =
+    blendAfter.validationWinRate > v2Summary.validationWinRate + 0.01
 
-  const indClear = v3IndSummary.beatsV2Holdout
-  const blendClear = v3BlendSummary.beatsV2Holdout
-  const indAboveBe =
-    v3IndSummary.validationWinRate >= BREAKEVEN_WIN_RATE
-  const blendAboveBe =
-    v3BlendSummary.validationWinRate >= BREAKEVEN_WIN_RATE
+  const qbHelpedHoldout =
+    v3IndSummary.validationWinRate > qbCalib.before.validationWinRate + 0.005
+  const playabilityGrew =
+    blendAfter.validationGames > blendBefore.validationGames * 1.5
 
-  let verdict: string
-  if (!indClear && !blendClear) {
-    verdict =
-      'Holdout: neither v3 variant clearly beats v2 (>1pp) — reported plainly, not tuned away. Independent remains ~coin-flip ATS.'
-  } else if (indClear && indAboveBe) {
-    verdict =
-      'Holdout: v3-independent clearly beats v2 and clears breakeven on this split — still provisional, not a guarantee.'
-  } else if (indClear) {
-    verdict =
-      'Holdout: v3-independent is slightly above v2 but still below −110 breakeven — not an edge claim.'
-  } else if (blendClear && blendAboveBe) {
-    verdict =
-      'Holdout: only the market-blended v3 clears breakeven vs v2 — do not conflate with independent edge over the closing line.'
+  const parts: string[] = []
+  if (qbHelpedHoldout) {
+    parts.push(
+      `QB-Elo calib moved holdout ATS ${pct(qbCalib.before.validationWinRate)} → ${pct(v3IndSummary.validationWinRate)}.`,
+    )
   } else {
-    verdict =
-      'Holdout: market-blended edges v2 on this sample without a clean independent win — report both numbers separately.'
+    parts.push(
+      `QB-Elo calib did not meaningfully improve holdout ATS (${pct(qbCalib.before.validationWinRate)} → ${pct(v3IndSummary.validationWinRate)}).`,
+    )
   }
+  if (playabilityGrew) {
+    parts.push(
+      `Playability redesign grew holdout sample ${blendBefore.validationGames} → ${blendAfter.validationGames} (selection on independent stars).`,
+    )
+  } else {
+    parts.push(
+      `Playability redesign holdout n ${blendBefore.validationGames} → ${blendAfter.validationGames} — report plainly.`,
+    )
+  }
+  if (!v3IndSummary.beatsV2Holdout && !blendAfter.beatsV2Holdout) {
+    parts.push('Neither v3 variant clearly beats v2 on holdout.')
+  }
+  const verdict = parts.join(' ')
 
   console.log(verdict)
 
@@ -490,18 +666,37 @@ async function main() {
     JSON.stringify(blended),
   )
   await writeFile(
+    path.join(OUT_DIR, 'predictions-v3-market-legacy.json'),
+    JSON.stringify(blendedLegacy),
+  )
+  await writeFile(
     path.join(OUT_DIR, 'ratings-v3.json'),
     JSON.stringify(seasonBundles),
   )
   await writeFile(
     path.join(OUT_DIR, 'qb-ratings-v3-sample.json'),
-    JSON.stringify(snapshots.filter((s) => s.week === 1 || s.week === 10).slice(0, 400)),
+    JSON.stringify(
+      snapshots.filter((s) => s.week === 1 || s.week === 10).slice(0, 400),
+    ),
+  )
+  await writeFile(
+    path.join(OUT_DIR, 'qb-elo-calibration-log.json'),
+    JSON.stringify(
+      {
+        generatedAt: new Date().toISOString(),
+        defaults: DEFAULT_QB_ELO_PARAMS,
+        fitted: qbCalib.params,
+        log: qbCalib.log,
+      },
+      null,
+      2,
+    ),
   )
 
   const report = {
     generatedAt: new Date().toISOString(),
     methodology:
-      'v3 QB-Elo + weekly-EPA team signal + optional market blend. Independent and blended reported separately. IP: independent reimplementation from public methodology descriptions — not a port of nfelo source.',
+      'v3 QB-Elo (calibrated internals) + weekly-EPA + market blend with independent-selection playability. Two changes reported separately. IP: independent reimplementation — not a port of nfelo source.',
     requestedSplit: {
       train: '2009–2022',
       validation: '2023–2024',
@@ -517,13 +712,32 @@ async function main() {
     },
     wepaNote:
       'Team WEPA approximated from weekly player EPA sums; play-level weightPlay() used when PBP rows are supplied (unit tests).',
+    qbEloParams: qbCalib.params,
     modelWeight,
     coverCoeffs,
     replacementElo: QB_ELO_REPLACEMENT,
     breakeven: BREAKEVEN_WIN_RATE,
     v2: v2Summary,
     v3Independent: v3IndSummary,
-    v3MarketBlended: v3BlendSummary,
+    v3MarketBlended: blendAfter,
+    /** Separate before/after — do not collapse into one "v4" number. */
+    changes: {
+      qbEloCalibration: {
+        before: qbCalib.before,
+        after: v3IndSummary,
+        paramsBefore: DEFAULT_QB_ELO_PARAMS,
+        paramsAfter: qbCalib.params,
+        helpedHoldout: qbHelpedHoldout,
+      },
+      marketBlendPlayability: {
+        before: blendBefore,
+        after: blendAfter,
+        beforeMode: 'legacy-blended-stars',
+        afterMode: 'independent-selection',
+        sampleGrew: playabilityGrew,
+        note: 'Selection uses independent star disagreement; betting signal is blended spread + coverProbability. Legacy applied stars to the blended number (mechanically shrunk).',
+      },
+    },
     verdict,
   }
 
@@ -532,7 +746,9 @@ async function main() {
     JSON.stringify(report, null, 2),
   )
 
-  console.log('Wrote predictions-v3-*.json, ratings-v3.json, calibrated-v3.json')
+  console.log(
+    'Wrote predictions-v3-*.json, ratings-v3.json, qb-elo-calibration-log.json, calibrated-v3.json',
+  )
 }
 
 main().catch((err) => {
