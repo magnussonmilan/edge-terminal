@@ -1,5 +1,14 @@
 /**
- * v3 team rating engine: score/WEPA performance + QB Elo point delta.
+ * v3 team rating engine: QB-neutral team updates + QB Elo overlay at predict time.
+ *
+ * Structural rule (overconfidence fix): game score/WEPA already embeds the
+ * starting QBs' contribution. Team ratings therefore update off a QB-neutral
+ * performance signal (observed margin minus expected QB point differential).
+ * QB-Elo is added only at prediction via effectiveTeamRating — the sole
+ * explicit QB source. Do not also inject QB into TGPL on top of raw margin.
+ *
+ * Scale (Hypothesis B check): qbEloToPointDelta uses (elo − replacement) / 25
+ * (538-style). Differentials are in point-spread units, not raw Elo.
  *
  * Preserves ratingBeforeWeek no-look-ahead discipline from predictions.ts —
  * byWeek snapshots are written AFTER each week's games, and predictions for
@@ -54,17 +63,6 @@ export function gamePerformanceMargin(
 }
 
 /**
- * Effective team rating for prediction = base team Elo-points + QB point delta.
- */
-export function effectiveTeamRating(
-  baseTeamRating: number,
-  qbElo: number | null,
-): number {
-  if (qbElo == null) return baseTeamRating
-  return baseTeamRating + qbEloToPointDelta(qbElo)
-}
-
-/**
  * QB injury / backup swing in points (starter Elo vs replacement).
  */
 export function qbDeltaForTeam(
@@ -75,6 +73,28 @@ export function qbDeltaForTeam(
   return qbEloToPointDelta(starter.elo) - qbEloToPointDelta(backupElo)
 }
 
+/**
+ * Expected home-perspective point contribution from the two starting QBs.
+ * Used to strip implicit QB credit from observed margin.
+ */
+export function expectedQbPointMargin(
+  homeQb: QbStartInfo | null,
+  awayQb: QbStartInfo | null,
+): number {
+  return qbDeltaForTeam(homeQb) - qbDeltaForTeam(awayQb)
+}
+
+/**
+ * Effective team rating for prediction = QB-neutral team rating + QB point delta.
+ */
+export function effectiveTeamRating(
+  baseTeamRating: number,
+  qbElo: number | null,
+): number {
+  if (qbElo == null) return baseTeamRating
+  return baseTeamRating + qbEloToPointDelta(qbElo)
+}
+
 export function processSeasonRatingsV3(
   games: GameResult[],
   initial: Record<string, number>,
@@ -82,14 +102,19 @@ export function processSeasonRatingsV3(
     hfa?: HfaConfig
     qbStart?: QbStartLookup
     teamWepa?: TeamWepaLookup
-    /** When true, subtract opponent QB delta in TGPL like an injury term. */
-    useQbInUpdate?: boolean
+    /**
+     * When true (default): strip expected QB point margin from the observed
+     * performance before the team update (QB-neutral team ratings).
+     * When false: update off raw margin/WEPA with no QB netting (legacy).
+     */
+    neutralizeQbInUpdate?: boolean
   } = {},
 ): {
   final: Record<string, TeamRating>
   byWeek: Record<number, Record<string, number>>
 } {
   const hfa = opts.hfa ?? HOME_FIELD_ADVANTAGE
+  const neutralize = opts.neutralizeQbInUpdate !== false
   const ratings: Record<string, number> = { ...initial }
   const byWeek: Record<number, Record<string, number>> = {}
 
@@ -103,29 +128,25 @@ export function processSeasonRatingsV3(
     if (game.homeScore == null || game.awayScore == null) continue
 
     const seasonHfa = resolveHfa(hfa, game.season)
-    const homeW =
-      opts.teamWepa?.(game.gameId, game.homeTeam) ?? null
-    const awayW =
-      opts.teamWepa?.(game.gameId, game.awayTeam) ?? null
-    const { homeNet, awayNet } = gamePerformanceMargin(game, homeW, awayW)
+    const homeW = opts.teamWepa?.(game.gameId, game.homeTeam) ?? null
+    const awayW = opts.teamWepa?.(game.gameId, game.awayTeam) ?? null
+    let { homeNet, awayNet } = gamePerformanceMargin(game, homeW, awayW)
+
+    // Hypothesis A fix: net out expected QB contribution so team ratings stay
+    // QB-neutral. Do NOT add a separate qbTerm on top of the raw margin.
+    if (neutralize && opts.qbStart) {
+      const hq = opts.qbStart(game.season, game.week, game.homeTeam)
+      const aq = opts.qbStart(game.season, game.week, game.awayTeam)
+      const qbMargin = expectedQbPointMargin(hq, aq)
+      homeNet -= qbMargin
+      awayNet += qbMargin
+    }
 
     const homeRating = ratings[game.homeTeam] ?? 0
     const awayRating = ratings[game.awayTeam] ?? 0
 
-    let homeQbTerm = 0
-    let awayQbTerm = 0
-    if (opts.useQbInUpdate !== false && opts.qbStart) {
-      const hq = opts.qbStart(game.season, game.week, game.homeTeam)
-      const aq = opts.qbStart(game.season, game.week, game.awayTeam)
-      // Own QB strength helps TGPL; opponent QB hurts (like injury differential sign).
-      homeQbTerm = qbDeltaForTeam(hq) - qbDeltaForTeam(aq)
-      awayQbTerm = -homeQbTerm
-    }
-
-    const homeTgpl =
-      homeNet + awayRating + -seasonHfa + homeQbTerm
-    const awayTgpl =
-      awayNet + homeRating + seasonHfa + awayQbTerm
+    const homeTgpl = homeNet + awayRating + -seasonHfa
+    const awayTgpl = awayNet + homeRating + seasonHfa
 
     ratings[game.homeTeam] = updateRating(homeRating, homeTgpl)
     ratings[game.awayTeam] = updateRating(awayRating, awayTgpl)

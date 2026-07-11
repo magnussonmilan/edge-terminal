@@ -308,7 +308,7 @@ function summarize(label: string, preds: GamePrediction[]) {
   const val = scoreSeasons(preds, VALIDATION)
   const all = computeBacktest(preds, 'all')
   console.log(
-    `${label}: train ATS ${pct(train.overallWinRate)} (n=${train.totalPlayableGames}) · val ATS ${pct(val.overallWinRate)} (n=${val.totalPlayableGames}) · SU val ${pct(val.straightUp?.accuracy ?? 0)}`,
+    `${label}: train ATS ${pct(train.overallWinRate)} (n=${train.totalPlayableGames}) · val ATS ${pct(val.overallWinRate)} (n=${val.totalPlayableGames}) · SU val ${pct(val.straightUp?.accuracy ?? 0)} · MAE val ${(val.mae?.mae ?? 0).toFixed(2)}`,
   )
   return {
     trainWinRate: train.overallWinRate,
@@ -317,17 +317,21 @@ function summarize(label: string, preds: GamePrediction[]) {
     trainRoi: train.roiIfFollowed,
     trainStraightUpAccuracy: train.straightUp?.accuracy ?? 0,
     trainStraightUpGames: train.straightUp?.totalGames ?? 0,
+    trainMae: train.mae?.mae ?? 0,
     validationWinRate: val.overallWinRate,
     validationGames: val.totalPlayableGames,
     validationBrier: val.brierScore,
     validationRoi: val.roiIfFollowed,
     validationStraightUpAccuracy: val.straightUp?.accuracy ?? 0,
     validationStraightUpGames: val.straightUp?.totalGames ?? 0,
+    validationMae: val.mae?.mae ?? 0,
     allWinRate: all.overallWinRate,
     allGames: all.totalPlayableGames,
     allBrier: all.brierScore,
     allRoi: all.roiIfFollowed,
     allStraightUpAccuracy: all.straightUp?.accuracy ?? 0,
+    allMae: all.mae?.mae ?? 0,
+    allMaeN: all.mae?.n ?? 0,
     beatsV2Holdout: false as boolean,
   }
 }
@@ -383,7 +387,7 @@ async function main() {
       hfa: HOME_FIELD_ADVANTAGE,
       qbStart,
       teamWepa,
-      useQbInUpdate: true,
+      neutralizeQbInUpdate: true,
     })
     seasonBundles[String(season)] = { seed, byWeek }
     priorFinal = final

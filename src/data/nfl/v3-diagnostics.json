@@ -1,15 +1,15 @@
 {
-  "generatedAt": "2026-07-11T00:16:39.034Z",
+  "generatedAt": "2026-07-11T00:25:45.615Z",
   "marketBlend": {
-    "independentMeanAbsDiff": 6.696356018939378,
-    "blendedMeanAbsDiff": 1.0044534028409038,
-    "independentMedianAbsDiff": 5.664731993451534,
-    "blendedMedianAbsDiff": 0.8497097990177309,
-    "independentPlayableCount": 3486,
-    "blendedPlayableCount": 1216,
+    "independentMeanAbsDiff": 3.072161689583212,
+    "blendedMeanAbsDiff": 0.46082425343748223,
+    "independentMedianAbsDiff": 2.4897567317613563,
+    "blendedMedianAbsDiff": 0.3734635097642034,
+    "independentPlayableCount": 2805,
+    "blendedPlayableCount": 305,
     "blendedGameCount": 4159,
     "independentGameCount": 4159,
-    "meanAbsDiffRatio": 0.14999999999999958,
+    "meanAbsDiffRatio": 0.15000000000000016,
     "hypothesisConfirmed": true,
     "conclusion": "CONFIRMED: modelWeight≈0.15 shrinks |blended−posted| to ~15% of independent gap. Star playability (key-number differential) then selects a thin tail — not a valid apples-to-apples comparison to v2/v3-independent without a different playability criterion."
   },
@@ -32,21 +32,25 @@
       },
       "v3Independent": {
         "label": "v3-independent",
-        "n": 3486,
-        "brier": 0.24569070146164834,
-        "meanConf": 0.2642067924274397,
-        "meanAbsSpread": 10.42696657638812
+        "n": 2805,
+        "brier": 0.22855015107038354,
+        "meanConf": 0.1853540655389044,
+        "meanAbsSpread": 6.304100238226907
       },
       "v3ClippedPm7": {
         "label": "v3-independent clipped ±7",
-        "n": 3486,
-        "brier": 0.23035025348036928,
-        "meanConf": 0.18076457958485675,
-        "meanAbsSpread": 5.6942776086306015
+        "n": 2805,
+        "brier": 0.22794713662484503,
+        "meanConf": 0.15184139910119895,
+        "meanAbsSpread": 4.747378111362668
       }
     },
-    "overconfidence": "v3 playable |modelSpread| mean 10.43 vs v2 5.22 — same logistic maps larger spreads to more extreme probs, inflating Brier when wrong.",
-    "clipExperiment": "Clipping v3 spreads to ±7 improves Brier 0.2457 → 0.2304 (diagnostic only, not a fix)."
+    "spreadMagnitudeClosed": true,
+    "spreadMagnitudeNote": "Spread magnitude gap closed: v3 playable |modelSpread| mean 6.30 vs v2 5.22 (within 35% of v2).",
+    "overconfidence": "Spread magnitude gap closed: v3 playable |modelSpread| mean 6.30 vs v2 5.22 (within 35% of v2).",
+    "clipExperiment": "Clipping v3 spreads to ±7 improves Brier 0.2286 → 0.2279 (diagnostic only, not a fix).",
+    "hypothesisA": "Double-counting: team updates used full score/WEPA (QB-embedded) AND prediction added QB Elo again. Fixed by QB-neutralizing team updates (strip expected QB margin) and keeping QB only at predict time.",
+    "hypothesisB": "Scale: qbEloToPointDelta already uses /25 (538-style). Differentials were in point units (~4.7 pts mean |QB net|) — not raw Elo. B was not the cause of the ~2× inflation."
   },
   "qbVolatility": {
     "teamWowV2": {
@@ -57,9 +61,9 @@
     },
     "teamWowV3": {
       "n": 8684,
-      "std": 1.1931852702756995,
-      "meanAbs": 0.8912323236856394,
-      "p95": 2.4534205272518896
+      "std": 1.1275721315280118,
+      "meanAbs": 0.8432870689418572,
+      "p95": 2.294011748722438
     },
     "qbWowEloPerWeekApprox": {
       "n": 148,
@@ -78,9 +82,9 @@
   },
   "wepa": {
     "productionNote": "calibrate-v3 currently feeds weekly player EPA sums into team updates — play-level weightPlay() is unit-tested but not on the live rating path.",
-    "syntheticVarRaw": 0.32712717969603994,
-    "syntheticVarWeighted": 0.2882471910626422,
-    "varianceRatioWeightedOverRaw": 0.8811471774692513
+    "syntheticVarRaw": 0.3385502118445351,
+    "syntheticVarWeighted": 0.2991161951456203,
+    "varianceRatioWeightedOverRaw": 0.8835209215080237
   },
-  "overall": "Primary Brier driver: overconfident |modelSpread| under the shared spread→P map (not a new conversion). Market-blend instability: differential shrinkage under star filter. WEPA weightPlay not on production path — cannot explain current Brier. Architecture needs more than coefficient retuning before claiming v3 > v2."
+  "overall": "Overconfidence fix verified on spread magnitude. Re-check holdout ATS/Brier separately — closing magnitude does not guarantee beating v2."
 }

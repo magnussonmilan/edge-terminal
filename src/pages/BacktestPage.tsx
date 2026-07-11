@@ -15,6 +15,7 @@ import { Link } from 'react-router-dom'
 import {
   ALL_PREDICTIONS,
   CALIBRATED_V3,
+  NFELO_PUBLISHED,
   PREDICTIONS_V3_INDEPENDENT,
   PREDICTIONS_V3_MARKET,
   listSeasons,
@@ -22,6 +23,7 @@ import {
 import {
   BREAKEVEN_WIN_RATE,
   computeBacktest,
+  computeMeanAbsoluteError,
   computeStarSignalDiagnostics,
   computeStraightUpAccuracy,
   formatWinRateWithCI,
@@ -194,6 +196,51 @@ export function BacktestPage() {
     () => computeStraightUpAccuracy(PREDICTIONS_V3_MARKET, suScope),
     [suScope],
   )
+  const maeV2 = useMemo(
+    () => computeMeanAbsoluteError(ALL_PREDICTIONS, suScope),
+    [suScope],
+  )
+  const maeV3Ind = useMemo(
+    () => computeMeanAbsoluteError(PREDICTIONS_V3_INDEPENDENT, suScope),
+    [suScope],
+  )
+  const maeV3Blend = useMemo(
+    () => computeMeanAbsoluteError(PREDICTIONS_V3_MARKET, suScope),
+    [suScope],
+  )
+
+  // Full-sample metrics for vs-nfelo table (apples closer to their multi-season aggregate)
+  const nfeloOurs = useMemo(() => {
+    const v2All = computeBacktest(ALL_PREDICTIONS, 'all')
+    const indAll = computeBacktest(PREDICTIONS_V3_INDEPENDENT, 'all')
+    const blendAll = computeBacktest(PREDICTIONS_V3_MARKET, 'all')
+    return {
+      v2: {
+        accuracy: v2All.straightUp?.accuracy ?? 0,
+        ats: v2All.overallWinRate,
+        atsN: v2All.totalPlayableGames,
+        mae: v2All.mae?.mae ?? 0,
+        maeN: v2All.mae?.n ?? 0,
+        suN: v2All.straightUp?.totalGames ?? 0,
+      },
+      v3Ind: {
+        accuracy: indAll.straightUp?.accuracy ?? 0,
+        ats: indAll.overallWinRate,
+        atsN: indAll.totalPlayableGames,
+        mae: indAll.mae?.mae ?? 0,
+        maeN: indAll.mae?.n ?? 0,
+        suN: indAll.straightUp?.totalGames ?? 0,
+      },
+      v3Blend: {
+        accuracy: blendAll.straightUp?.accuracy ?? 0,
+        ats: blendAll.overallWinRate,
+        atsN: blendAll.totalPlayableGames,
+        mae: blendAll.mae?.mae ?? 0,
+        maeN: blendAll.mae?.n ?? 0,
+        suN: blendAll.straightUp?.totalGames ?? 0,
+      },
+    }
+  }, [])
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
@@ -309,9 +356,141 @@ export function BacktestPage() {
             n={suV3Blend.totalGames}
           />
         </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <MaeCard label="v2 MAE" mae={maeV2.mae} n={maeV2.n} />
+          <MaeCard label="v3 independent MAE" mae={maeV3Ind.mae} n={maeV3Ind.n} />
+          <MaeCard
+            label="v3 market-blended MAE"
+            mae={maeV3Blend.mae}
+            n={maeV3Blend.n}
+          />
+        </div>
         <p className="mt-3 text-xs text-slate-500">
           Scope matches the season chips above (view filter). Model push
-          (spread exactly 0) excluded from the denominator.
+          (spread exactly 0) excluded from the SU denominator. MAE is
+          |modelSpread − actual margin| on settled games.
+        </p>
+      </section>
+
+      <section className="mb-8 rounded-lg border border-slate-200 bg-white p-5">
+        <h2 className="text-sm font-semibold text-slate-900">
+          vs. nfelo (published benchmarks)
+        </h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Our full-sample numbers alongside nfelo&apos;s published{' '}
+          {NFELO_PUBLISHED.window} figures. Source:{' '}
+          <a
+            className="text-slate-800 underline underline-offset-2"
+            href={NFELO_PUBLISHED.sourceUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            nfeloapp.com/games/nfl-model-performance
+          </a>
+          . Sample sizes are not equivalent — similar-looking percentages do
+          not imply equal statistical weight.
+        </p>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[40rem] text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+                <th className="py-2 pr-3 font-medium">Metric</th>
+                <th className="py-2 pr-3 font-medium">nfelo</th>
+                <th className="py-2 pr-3 font-medium">v2</th>
+                <th className="py-2 pr-3 font-medium">v3 independent</th>
+                <th className="py-2 font-medium">v3 blended</th>
+              </tr>
+            </thead>
+            <tbody className="tabular-nums text-slate-800">
+              <tr className="border-b border-slate-100">
+                <td className="py-2.5 pr-3 font-medium">Accuracy (SU)</td>
+                <td className="py-2.5 pr-3">
+                  {(NFELO_PUBLISHED.accuracy * 100).toFixed(2)}%
+                </td>
+                <td className="py-2.5 pr-3">
+                  {(nfeloOurs.v2.accuracy * 100).toFixed(1)}%
+                  <span className="text-slate-400"> · n={nfeloOurs.v2.suN}</span>
+                </td>
+                <td className="py-2.5 pr-3">
+                  {(nfeloOurs.v3Ind.accuracy * 100).toFixed(1)}%
+                  <span className="text-slate-400">
+                    {' '}
+                    · n={nfeloOurs.v3Ind.suN}
+                  </span>
+                </td>
+                <td className="py-2.5">
+                  {(nfeloOurs.v3Blend.accuracy * 100).toFixed(1)}%
+                  <span className="text-slate-400">
+                    {' '}
+                    · n={nfeloOurs.v3Blend.suN}
+                  </span>
+                </td>
+              </tr>
+              <tr className="border-b border-slate-100">
+                <td className="py-2.5 pr-3 font-medium">ATS vs close</td>
+                <td className="py-2.5 pr-3">
+                  {(NFELO_PUBLISHED.atsVsClose * 100).toFixed(2)}%
+                </td>
+                <td className="py-2.5 pr-3">
+                  {(nfeloOurs.v2.ats * 100).toFixed(1)}%
+                  <span className="text-slate-400">
+                    {' '}
+                    · n={nfeloOurs.v2.atsN}
+                  </span>
+                </td>
+                <td className="py-2.5 pr-3">
+                  {(nfeloOurs.v3Ind.ats * 100).toFixed(1)}%
+                  <span className="text-slate-400">
+                    {' '}
+                    · n={nfeloOurs.v3Ind.atsN}
+                  </span>
+                </td>
+                <td className="py-2.5">
+                  {(nfeloOurs.v3Blend.ats * 100).toFixed(1)}%
+                  <span className="text-slate-400">
+                    {' '}
+                    · n={nfeloOurs.v3Blend.atsN}
+                  </span>
+                </td>
+              </tr>
+              <tr className="border-b border-slate-100">
+                <td className="py-2.5 pr-3 font-medium">Prediction Error (MAE)</td>
+                <td className="py-2.5 pr-3">{NFELO_PUBLISHED.mae.toFixed(1)}</td>
+                <td className="py-2.5 pr-3">
+                  {nfeloOurs.v2.mae.toFixed(1)}
+                  <span className="text-slate-400">
+                    {' '}
+                    · n={nfeloOurs.v2.maeN}
+                  </span>
+                </td>
+                <td className="py-2.5 pr-3">
+                  {nfeloOurs.v3Ind.mae.toFixed(1)}
+                  <span className="text-slate-400">
+                    {' '}
+                    · n={nfeloOurs.v3Ind.maeN}
+                  </span>
+                </td>
+                <td className="py-2.5">
+                  {nfeloOurs.v3Blend.mae.toFixed(1)}
+                  <span className="text-slate-400">
+                    {' '}
+                    · n={nfeloOurs.v3Blend.maeN}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-3 text-xs text-slate-600">
+          nfelo aggregates {NFELO_PUBLISHED.window} (thousands of games). Ours
+          are 2009–2024 fixtures with smaller playable-ATS subsets — especially
+          v3-blended, whose star filter shrinks after market weighting. ATS
+          here is vs closing line (nflverse <code>spread_line</code>); nfelo
+          also publishes ATS vs open ({(NFELO_PUBLISHED.atsVsOpen * 100).toFixed(2)}%)
+          which we cannot match without opening lines.
+        </p>
+        <p className="mt-2 text-xs text-slate-600">
+          CLV is omitted: {NFELO_PUBLISHED.note}
         </p>
       </section>
 
@@ -809,6 +988,28 @@ function buildDiagnosticClosing(
   )
 
   return parts.join(' ')
+}
+
+function MaeCard({
+  label,
+  mae,
+  n,
+}: {
+  label: string
+  mae: number
+  n: number
+}) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 tabular-nums text-xl font-semibold text-slate-900">
+        {mae.toFixed(2)}
+      </p>
+      <p className="mt-0.5 text-xs text-slate-500">n={n} settled games</p>
+    </div>
+  )
 }
 
 function SuCard({

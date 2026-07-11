@@ -53,9 +53,26 @@ type ModelSummary = {
   beatsV2Holdout?: boolean
   trainStraightUpAccuracy?: number
   validationStraightUpAccuracy?: number
+  allStraightUpAccuracy?: number
   validationBrier?: number
   trainBrier?: number
+  allBrier?: number
+  validationMae?: number
+  allMae?: number
+  allMaeN?: number
 }
+
+/** Published nfelo benchmarks (nfeloapp.com/games/nfl-model-performance). */
+export const NFELO_PUBLISHED = {
+  sourceUrl: 'https://nfeloapp.com/games/nfl-model-performance/',
+  window: '2009–2025',
+  accuracy: 0.6661,
+  atsVsOpen: 0.5697,
+  atsVsClose: 0.537,
+  mae: 10.1,
+  clvAvgPerPlay: 0.0561,
+  note: 'CLV requires historical opening lines — nflverse schedules expose only closing spread_line. CLV is a stretch goal blocked on data; not estimated here.',
+} as const
 
 export const CALIBRATED_V3 = calibratedV3 as V3CalibrationReport
 

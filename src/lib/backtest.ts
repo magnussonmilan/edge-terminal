@@ -27,6 +27,8 @@ export interface BacktestSummary {
   roiIfFollowed: number
   /** Straight-up winner accuracy — separate from ATS; not comparable to ATS %. */
   straightUp?: AccuracySummary
+  /** Mean |modelSpread − actual margin| — nfelo "Prediction Error" analogue. */
+  mae?: { mae: number; n: number }
 }
 
 export const STAR_LEVELS = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0] as const
@@ -178,6 +180,7 @@ export function computeBacktest(
   const roiIfFollowed = n > 0 ? profit / n : 0
 
   const straightUp = computeStraightUpAccuracy(predictions, season)
+  const mae = computeMeanAbsoluteError(predictions, season)
 
   return {
     season,
@@ -187,6 +190,7 @@ export function computeBacktest(
     brierScore,
     roiIfFollowed,
     straightUp,
+    mae,
   }
 }
 
@@ -241,6 +245,32 @@ export function computeStraightUpAccuracy(
     accuracy: decided > 0 ? correct / decided : 0,
     pushGames: pushes,
   }
+}
+
+/**
+ * Mean absolute error between modelSpread and actual home margin.
+ * Matches nfelo's "Prediction Error" definition (MAE of predicted vs actual margin).
+ * Uses all settled games in scope (not only star-playable ATS signals).
+ */
+export function computeMeanAbsoluteError(
+  predictions: GamePrediction[],
+  season: number | 'all' | number[] = 'all',
+): { mae: number; n: number } {
+  const seasonSet =
+    season === 'all'
+      ? null
+      : new Set(Array.isArray(season) ? season : [season])
+
+  let sum = 0
+  let n = 0
+  for (const p of predictions) {
+    if (p.homeScore == null || p.awayScore == null) continue
+    if (seasonSet && !seasonSet.has(p.season)) continue
+    const actualMargin = p.homeScore - p.awayScore
+    sum += Math.abs(p.modelSpread - actualMargin)
+    n += 1
+  }
+  return { mae: n > 0 ? sum / n : 0, n }
 }
 
 function filterPlayable(

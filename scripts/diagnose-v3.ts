@@ -127,6 +127,13 @@ function main() {
     ),
   }
 
+  const spreadMagnitudeClosed =
+    brier.v3Independent.meanAbsSpread < brier.v2.meanAbsSpread * 1.35
+  const spreadMagnitudeNote = spreadMagnitudeClosed
+    ? `Spread magnitude gap closed: v3 playable |modelSpread| mean ${brier.v3Independent.meanAbsSpread.toFixed(2)} vs v2 ${brier.v2.meanAbsSpread.toFixed(2)} (within 35% of v2).`
+    : `Spread magnitude still elevated: v3 ${brier.v3Independent.meanAbsSpread.toFixed(2)} vs v2 ${brier.v2.meanAbsSpread.toFixed(2)} — overconfidence fix incomplete.`
+
+
   const teamWowV3 = varStats(wowDeltas(ratingsV3))
   const teamWowV2 = varStats(wowDeltas(ratingsV2))
 
@@ -188,14 +195,17 @@ function main() {
       spreadToWinProb: spreadChecks,
       sameMappingAsV2: true,
       parts: brier,
-      overconfidence:
-        brier.v3Independent.meanAbsSpread > brier.v2.meanAbsSpread * 1.3
-          ? `v3 playable |modelSpread| mean ${brier.v3Independent.meanAbsSpread.toFixed(2)} vs v2 ${brier.v2.meanAbsSpread.toFixed(2)} — same logistic maps larger spreads to more extreme probs, inflating Brier when wrong.`
-          : 'Spread magnitudes similar — overconfidence less likely primary.',
+      spreadMagnitudeClosed,
+      spreadMagnitudeNote,
+      overconfidence: spreadMagnitudeNote,
       clipExperiment:
         brier.v3ClippedPm7.brier < brier.v3Independent.brier
           ? `Clipping v3 spreads to ±7 improves Brier ${brier.v3Independent.brier.toFixed(4)} → ${brier.v3ClippedPm7.brier.toFixed(4)} (diagnostic only, not a fix).`
           : 'Clipping did not improve Brier.',
+      hypothesisA:
+        'Double-counting: team updates used full score/WEPA (QB-embedded) AND prediction added QB Elo again. Fixed by QB-neutralizing team updates (strip expected QB margin) and keeping QB only at predict time.',
+      hypothesisB:
+        'Scale: qbEloToPointDelta already uses /25 (538-style). Differentials were in point units (~4.7 pts mean |QB net|) — not raw Elo. B was not the cause of the ~2× inflation.',
     },
     qbVolatility: {
       teamWowV2,
@@ -210,8 +220,9 @@ function main() {
           : 'QB point deltas are not dramatically larger than team wow on this sample.',
     },
     wepa,
-    overall:
-      'Primary Brier driver: overconfident |modelSpread| under the shared spread→P map (not a new conversion). Market-blend instability: differential shrinkage under star filter. WEPA weightPlay not on production path — cannot explain current Brier. Architecture needs more than coefficient retuning before claiming v3 > v2.',
+    overall: spreadMagnitudeClosed
+      ? 'Overconfidence fix verified on spread magnitude. Re-check holdout ATS/Brier separately — closing magnitude does not guarantee beating v2.'
+      : 'Primary Brier driver was overconfident |modelSpread| from QB double-counting (Hypothesis A). Scale /25 was already correct (Hypothesis B rejected as cause). Fix incomplete if magnitude still elevated.',
   }
 
   console.log(JSON.stringify(findings, null, 2))

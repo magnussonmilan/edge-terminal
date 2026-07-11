@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { computeStraightUpAccuracy } from './backtest'
+import {
+  computeStraightUpAccuracy,
+  computeMeanAbsoluteError,
+} from './backtest'
 import type { GamePrediction } from './predictions'
 
 function base(partial: Partial<GamePrediction>): GamePrediction {
@@ -27,15 +30,27 @@ function base(partial: Partial<GamePrediction>): GamePrediction {
 describe('computeStraightUpAccuracy', () => {
   it('counts correct favorite picks and excludes model pushes', () => {
     const preds = [
-      base({ modelSpread: 3, homeScore: 27, awayScore: 20 }), // home favored, home wins
-      base({ modelSpread: -4, homeScore: 10, awayScore: 17 }), // away favored, away wins
-      base({ modelSpread: 2, homeScore: 14, awayScore: 21 }), // home favored, away wins
-      base({ modelSpread: 0, homeScore: 20, awayScore: 17 }), // push — excluded
+      base({ modelSpread: 3, homeScore: 27, awayScore: 20 }),
+      base({ modelSpread: -4, homeScore: 10, awayScore: 17 }),
+      base({ modelSpread: 2, homeScore: 14, awayScore: 21 }),
+      base({ modelSpread: 0, homeScore: 20, awayScore: 17 }),
     ]
     const s = computeStraightUpAccuracy(preds)
     expect(s.pushGames).toBe(1)
     expect(s.totalGames).toBe(3)
     expect(s.correctPicks).toBe(2)
     expect(s.accuracy).toBeCloseTo(2 / 3)
+  })
+})
+
+describe('computeMeanAbsoluteError', () => {
+  it('averages |modelSpread − actual margin|', () => {
+    const preds = [
+      base({ modelSpread: 3, homeScore: 27, awayScore: 20 }), // |3-7|=4
+      base({ modelSpread: -3, homeScore: 10, awayScore: 17 }), // |-3-(-7)|=4
+    ]
+    const m = computeMeanAbsoluteError(preds)
+    expect(m.n).toBe(2)
+    expect(m.mae).toBeCloseTo(4)
   })
 })
