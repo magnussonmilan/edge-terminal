@@ -35,6 +35,7 @@ const NAV_SECTIONS: NavSection[] = [
         search: '?sport=mlb',
         label: 'MLB vs markets',
       },
+      { to: '/mlb-pairs', label: 'MLB pair review' },
       { to: '/lines', label: 'Lines' },
       { to: '/stacks', label: 'Stacks' },
       { to: '/arb', label: 'Arb' },

@@ -16,6 +16,7 @@ import {
   mlbLiveDataStatus,
 } from '../mlbData'
 import { listCuratedPairs } from '../eventMatcher'
+import { listDiscoveredMlbPairs } from '../mlbDiscoveredPairsStore'
 import type { SportAdapter, SportGameOption } from '../sportAdapter'
 import type { MlbEloGame } from '../mlbTypes'
 
@@ -81,7 +82,17 @@ export const mlbSportAdapter: SportAdapter = {
   },
 
   listPredictionMarketPairs() {
-    return listCuratedPairs().filter((p) => p.sport === 'mlb')
+    const curated = listCuratedPairs().filter((p) => p.sport === 'mlb')
+    const discovered = listDiscoveredMlbPairs()
+    const keys = new Set(
+      curated.map((p) => `${p.kalshiMarketId}|${p.polymarketMarketId}`),
+    )
+    return [
+      ...curated,
+      ...discovered.filter(
+        (p) => !keys.has(`${p.kalshiMarketId}|${p.polymarketMarketId}`),
+      ),
+    ]
   },
 
   defaultBlendWeight() {

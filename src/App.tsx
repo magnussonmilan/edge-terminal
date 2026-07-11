@@ -12,6 +12,7 @@ import { HowItWorksPage } from '@/pages/HowItWorksPage'
 import { ArbMonitorPage } from '@/pages/ArbMonitorPage'
 import { LinesPage } from '@/pages/LinesPage'
 import { MlbEloPage } from '@/pages/MlbEloPage'
+import { MlbPairReviewPage } from '@/pages/MlbPairReviewPage'
 import { ComparePage } from '@/pages/ComparePage'
 import { RankingsIndexPage } from '@/pages/rankings/RankingsIndexPage'
 import { PowerRatingsPage } from '@/pages/rankings/PowerRatingsPage'
@@ -70,6 +71,7 @@ export default function App() {
         <Route path="/arb" element={<ArbMonitorPage />} />
         <Route path="/lines" element={<LinesPage />} />
         <Route path="/mlb-elo" element={<MlbEloPage />} />
+        <Route path="/mlb-pairs" element={<MlbPairReviewPage />} />
         <Route path="/compare" element={<ComparePage />} />
         <Route path="/rankings" element={<RankingsIndexPage />} />
         <Route path="/rankings/power" element={<PowerRatingsPage />} />
