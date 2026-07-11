@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   gamePerformanceMargin,
+  gamePerformanceMarginNet,
+  nonNetTeamGrade,
   effectiveTeamRating,
   expectedQbPointMargin,
   processSeasonRatingsV3,
@@ -24,9 +26,30 @@ const game: GameResult = {
 }
 
 describe('teamEloV2', () => {
-  it('mixes WEPA with score when both sides have WEPA', () => {
-    const { homeNet } = gamePerformanceMargin(game, 10, 0)
+  it('nonNetTeamGrade is offense minus defense allowed', () => {
+    expect(nonNetTeamGrade(10, 3)).toBe(7)
+  })
+
+  it('mixes PD with independent non-net WEPA grades (not forced inverse after blend)', () => {
+    // Shootout-ish: both teams generate a lot of offense WEPA; defense allowed high too.
+    // Grades: home 12-10=+2, away 10-8=+2 — both positive (the non-net point).
+    const { homeNet, awayNet } = gamePerformanceMargin(
+      game,
+      { offenseWepa: 12, defenseWepaAllowed: 10 },
+      { offenseWepa: 10, defenseWepaAllowed: 8 },
+      0.3,
+    )
+    // home: 0.3*1 + 0.7*2*0.4 = 0.3 + 0.56 = 0.86
+    // away: 0.3*(-1) + 0.7*2*0.4 = -0.3 + 0.56 = 0.26
+    expect(homeNet).toBeCloseTo(0.86)
+    expect(awayNet).toBeCloseTo(0.26)
+    expect(homeNet + awayNet).not.toBeCloseTo(0)
+  })
+
+  it('legacy net path forces away = -home', () => {
+    const { homeNet, awayNet } = gamePerformanceMarginNet(game, 10, 0, 0.3)
     expect(homeNet).toBeCloseTo(3.1)
+    expect(awayNet).toBeCloseTo(-3.1)
   })
 
   it('falls back to raw margin without WEPA', () => {
@@ -58,7 +81,6 @@ describe('teamEloV2', () => {
     const raw = processSeasonRatingsV3([game], { KC: 0, DET: 0 }, {
       neutralizeQbInUpdate: false,
     })
-    // Raw margin +1; neutralized subtracts +3 QB credit → weaker home TGPL
     expect(neut.final.KC.rating).toBeLessThan(raw.final.KC.rating)
   })
 })

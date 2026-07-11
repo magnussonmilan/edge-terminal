@@ -319,6 +319,7 @@ export function fitJointCoefficients(
     qbYpaMult: clamp(b[0], 0.05, 1.2),
     qbIntMult: clamp(b[1], 5, 40),
     qbEpaMult: clamp(b[2], 0.2, 4),
+    qbCpoeMult: DEFAULT_PLAYER_COEFFS.qbCpoeMult,
     wrPprMult: clamp(b[3], 0.02, 0.35),
     wrShareMult: clamp(b[4], 0.5, 4),
     rbYpgDiv,

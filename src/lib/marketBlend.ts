@@ -8,9 +8,22 @@
  */
 
 import type { GamePrediction } from './predictions'
+import { coverProbabilityFromMargins } from './marginDistribution'
 
 /** Default blend weight on the model (rest on market). Fit via calibration. */
 export const DEFAULT_MODEL_WEIGHT = 0.35
+
+export type CoverProbabilityMode = 'logistic' | 'fitted-margins'
+
+let coverMode: CoverProbabilityMode = 'logistic'
+
+export function getCoverProbabilityMode(): CoverProbabilityMode {
+  return coverMode
+}
+
+export function setCoverProbabilityMode(mode: CoverProbabilityMode): void {
+  coverMode = mode
+}
 
 /**
  * Blend independent model spread with posted market spread.
@@ -29,17 +42,24 @@ export function blendWithMarket(
 }
 
 /**
- * Logistic cover probability from (blended − posted) edge in points.
- * Positive edgeMeans the blend favors the same side more than the posted number
- * (home-perspective: blended > posted → bet home ATS).
+ * Cover probability from (blended − posted) edge.
+ * - logistic: fit coefficients on train (default)
+ * - fitted-margins: generative margin distribution centered on blended spread
  *
- * Coefficients are fit on train seasons only (see fitCoverModel).
+ * Positive edge means the blend favors home more than the posted number
+ * (home-perspective: blended > posted → bet home ATS). Returned probability
+ * is always P(selected side covers).
  */
 export function estimateCoverProbability(
   blendedSpread: number,
   postedSpread: number,
   coeffs: CoverModelCoeffs = DEFAULT_COVER_COEFFS,
 ): number {
+  if (coverMode === 'fitted-margins') {
+    const pHomeCovers = coverProbabilityFromMargins(blendedSpread, postedSpread)
+    const betHome = blendedSpread > postedSpread
+    return betHome ? pHomeCovers : 1 - pHomeCovers
+  }
   const edge = blendedSpread - postedSpread
   const z = coeffs.intercept + coeffs.slope * edge
   return 1 / (1 + Math.exp(-z))

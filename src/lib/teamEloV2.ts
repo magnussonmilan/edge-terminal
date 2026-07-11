@@ -10,6 +10,11 @@
  * Scale (Hypothesis B check): qbEloToPointDelta uses (elo − replacement) / 25
  * (538-style). Differentials are in point-spread units, not raw Elo.
  *
+ * Non-net grades: each team is graded from its own offense WEPA minus defense
+ * WEPA allowed — not forced to `awayNet = -homeNet` after the blend. Per
+ * published nfelo analysis ("What's the Best NFL Game Grade?"), independent
+ * per-team grades predict future performance better than zero-sum net margin.
+ *
  * Preserves ratingBeforeWeek no-look-ahead discipline from predictions.ts —
  * byWeek snapshots are written AFTER each week's games, and predictions for
  * week W read week W-1 (or season seed).
@@ -23,9 +28,14 @@ import {
   type HfaConfig,
   type TeamRating,
 } from './powerRatings'
-import { wepaDiffToPointMargin } from './weightedEpa'
+import {
+  WEPA_TO_POINTS,
+  type TeamWepaComponents,
+} from './weightedEpa'
 import { qbEloToPointDelta, QB_ELO_REPLACEMENT } from './qbElo'
 import { buildPreseasonPriors } from './srsPrior'
+
+export type { TeamWepaComponents }
 
 export interface QbStartInfo {
   playerId: string
@@ -42,21 +52,89 @@ export type QbStartLookup = (
 export type TeamWepaLookup = (
   gameId: string,
   team: string,
-) => number | null
+) => TeamWepaComponents | null
+
+/** Default share on point differential; rest on WEPA grade. Calibrated on train. */
+export const DEFAULT_PD_WEIGHT = 0.3
+
+let activePdWeight = DEFAULT_PD_WEIGHT
+
+export function getPdWeight(): number {
+  return activePdWeight
+}
+
+export function setPdWeight(w: number): void {
+  activePdWeight = Math.max(0, Math.min(1, w))
+}
+
+export function resetPdWeight(): void {
+  activePdWeight = DEFAULT_PD_WEIGHT
+}
 
 /**
- * Performance signal for rating update: prefer WEPA-implied margin when both
- * teams have WEPA; else raw score margin. Mix 70/30 when both exist.
+ * Non-net team grade: each team's own offensive output minus defensive
+ * output allowed, computed independently — NOT forced to sum to zero
+ * against the opponent. Per nfelo's published finding, this predicts
+ * future performance better than a net/zero-sum margin.
+ */
+export function nonNetTeamGrade(
+  offenseWepa: number,
+  defenseWepaAllowed: number,
+): number {
+  return offenseWepa - defenseWepaAllowed
+}
+
+/**
+ * Performance signal for rating update.
+ *
+ * When both sides have WEPA components: blend point differential with each
+ * team's own non-net WEPA grade (scaled to points). Home and away grades are
+ * computed independently — away is not forced to `-home`.
+ *
+ * pdWeight ∈ [0,1]: weight on raw point differential (rest on WEPA).
  */
 export function gamePerformanceMargin(
   game: GameResult,
-  homeWepa: number | null,
-  awayWepa: number | null,
+  homeWepa: TeamWepaComponents | null,
+  awayWepa: TeamWepaComponents | null,
+  pdWeight: number = activePdWeight,
 ): { homeNet: number; awayNet: number } {
   const rawHome = game.homeScore - game.awayScore
+  const pd = Math.max(0, Math.min(1, pdWeight))
+  const wepaW = 1 - pd
+
   if (homeWepa != null && awayWepa != null) {
-    const wepaPts = wepaDiffToPointMargin(homeWepa, awayWepa)
-    const homeNet = 0.3 * rawHome + 0.7 * wepaPts
+    const homeGrade = nonNetTeamGrade(
+      homeWepa.offenseWepa,
+      homeWepa.defenseWepaAllowed,
+    )
+    const awayGrade = nonNetTeamGrade(
+      awayWepa.offenseWepa,
+      awayWepa.defenseWepaAllowed,
+    )
+    return {
+      homeNet: pd * rawHome + wepaW * homeGrade * WEPA_TO_POINTS,
+      awayNet: pd * -rawHome + wepaW * awayGrade * WEPA_TO_POINTS,
+    }
+  }
+  return { homeNet: rawHome, awayNet: -rawHome }
+}
+
+/**
+ * Legacy net-margin path (pre non-net): force awayNet = -homeNet after blend.
+ * Kept for staged before/after calibration only.
+ */
+export function gamePerformanceMarginNet(
+  game: GameResult,
+  homeOffenseWepa: number | null,
+  awayOffenseWepa: number | null,
+  pdWeight = 0.3,
+): { homeNet: number; awayNet: number } {
+  const rawHome = game.homeScore - game.awayScore
+  if (homeOffenseWepa != null && awayOffenseWepa != null) {
+    const wepaPts =
+      (homeOffenseWepa - awayOffenseWepa) * WEPA_TO_POINTS
+    const homeNet = pdWeight * rawHome + (1 - pdWeight) * wepaPts
     return { homeNet, awayNet: -homeNet }
   }
   return { homeNet: rawHome, awayNet: -rawHome }
@@ -108,6 +186,13 @@ export function processSeasonRatingsV3(
      * When false: update off raw margin/WEPA with no QB netting (legacy).
      */
     neutralizeQbInUpdate?: boolean
+    /** Point-differential blend weight (rest on WEPA). Default: activePdWeight. */
+    pdWeight?: number
+    /**
+     * When true: use legacy net-margin (away = -home) for staged A/B tests.
+     * Default false (non-net independent grades).
+     */
+    useNetMargin?: boolean
   } = {},
 ): {
   final: Record<string, TeamRating>
@@ -115,6 +200,8 @@ export function processSeasonRatingsV3(
 } {
   const hfa = opts.hfa ?? HOME_FIELD_ADVANTAGE
   const neutralize = opts.neutralizeQbInUpdate !== false
+  const pdWeight = opts.pdWeight ?? activePdWeight
+  const useNet = opts.useNetMargin === true
   const ratings: Record<string, number> = { ...initial }
   const byWeek: Record<number, Record<string, number>> = {}
 
@@ -130,7 +217,23 @@ export function processSeasonRatingsV3(
     const seasonHfa = resolveHfa(hfa, game.season)
     const homeW = opts.teamWepa?.(game.gameId, game.homeTeam) ?? null
     const awayW = opts.teamWepa?.(game.gameId, game.awayTeam) ?? null
-    let { homeNet, awayNet } = gamePerformanceMargin(game, homeW, awayW)
+
+    let homeNet: number
+    let awayNet: number
+    if (useNet) {
+      const net = gamePerformanceMarginNet(
+        game,
+        homeW?.offenseWepa ?? null,
+        awayW?.offenseWepa ?? null,
+        pdWeight,
+      )
+      homeNet = net.homeNet
+      awayNet = net.awayNet
+    } else {
+      const perf = gamePerformanceMargin(game, homeW, awayW, pdWeight)
+      homeNet = perf.homeNet
+      awayNet = perf.awayNet
+    }
 
     // Hypothesis A fix: net out expected QB contribution so team ratings stay
     // QB-neutral. Do NOT add a separate qbTerm on top of the raw margin.

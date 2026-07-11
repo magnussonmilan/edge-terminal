@@ -329,28 +329,108 @@ export function BacktestPage() {
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
                   <p className="font-semibold text-slate-900">
-                    Change A — QB-Elo calibration
+                    C1 — Non-net per-team grades
                   </p>
                   <p className="mt-1 tabular-nums">
                     Holdout ATS{' '}
                     {(
-                      (v3.changes.qbEloCalibration?.before.validationWinRate ??
-                        0) * 100
+                      (v3.changes.nonNetGrading?.before.validationWinRate ?? 0) *
+                      100
                     ).toFixed(1)}
                     % →{' '}
                     {(
-                      (v3.changes.qbEloCalibration?.after.validationWinRate ??
-                        0) * 100
+                      (v3.changes.nonNetGrading?.after.validationWinRate ?? 0) *
+                      100
                     ).toFixed(1)}
                     %
-                    {v3.changes.qbEloCalibration?.helpedHoldout
+                    {v3.changes.nonNetGrading?.helpedHoldout
                       ? ' (helped)'
                       : ' (no meaningful holdout gain)'}
+                  </p>
+                  <p className="mt-1 text-slate-500">
+                    {v3.changes.nonNetGrading?.note}
                   </p>
                 </div>
                 <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
                   <p className="font-semibold text-slate-900">
-                    Change B — blend playability redesign
+                    C2 — Real WEPA + PD/WEPA blend
+                  </p>
+                  <p className="mt-1 tabular-nums">
+                    Holdout ATS{' '}
+                    {(
+                      (v3.changes.realWepaAndBlend?.before.validationWinRate ??
+                        0) * 100
+                    ).toFixed(1)}
+                    % →{' '}
+                    {(
+                      (v3.changes.realWepaAndBlend?.after.validationWinRate ??
+                        0) * 100
+                    ).toFixed(1)}
+                    %
+                    {v3.changes.realWepaAndBlend?.helpedHoldout
+                      ? ' (helped)'
+                      : ' (no meaningful holdout gain)'}
+                  </p>
+                  <p className="mt-1 text-slate-500">
+                    pdWeight{' '}
+                    {v3.changes.realWepaAndBlend?.pdWeightBefore ?? 0.3} →{' '}
+                    {v3.changes.realWepaAndBlend?.pdWeightAfter ?? '—'}
+                    {'. '}
+                    {v3.changes.realWepaAndBlend?.note}
+                  </p>
+                </div>
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                  <p className="font-semibold text-slate-900">
+                    C3 — CPOE QB signal
+                  </p>
+                  <p className="mt-1 tabular-nums">
+                    Holdout ATS{' '}
+                    {(
+                      (v3.changes.cpoe?.before.validationWinRate ?? 0) * 100
+                    ).toFixed(1)}
+                    % →{' '}
+                    {(
+                      (v3.changes.cpoe?.after.validationWinRate ?? 0) * 100
+                    ).toFixed(1)}
+                    %
+                    {v3.changes.cpoe?.earnedCoefficient
+                      ? v3.changes.cpoe?.helpedHoldout
+                        ? ' (earned + helped)'
+                        : ' (earned on train, not holdout)'
+                      : ' (coefficient not earned)'}
+                  </p>
+                  <p className="mt-1 text-slate-500">
+                    cpoeToEloScale={v3.changes.cpoe?.cpoeToEloScale ?? 0}.{' '}
+                    {v3.changes.cpoe?.note}
+                  </p>
+                </div>
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                  <p className="font-semibold text-slate-900">
+                    C4 — Fitted margin distribution
+                  </p>
+                  <p className="mt-1 tabular-nums">
+                    Holdout ATS{' '}
+                    {(
+                      (v3.changes.fittedMarginDistribution?.before
+                        .validationWinRate ?? 0) * 100
+                    ).toFixed(1)}
+                    % →{' '}
+                    {(
+                      (v3.changes.fittedMarginDistribution?.after
+                        .validationWinRate ?? 0) * 100
+                    ).toFixed(1)}
+                    %
+                    {v3.changes.fittedMarginDistribution?.helpedHoldout
+                      ? ' (helped)'
+                      : ' (no meaningful holdout gain)'}
+                  </p>
+                  <p className="mt-1 text-slate-500">
+                    {v3.changes.fittedMarginDistribution?.note}
+                  </p>
+                </div>
+                <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                  <p className="font-semibold text-slate-900">
+                    Prior — blend playability redesign
                   </p>
                   <p className="mt-1 tabular-nums">
                     Holdout n{' '}
@@ -378,7 +458,7 @@ export function BacktestPage() {
                 </div>
                 <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
                   <p className="font-semibold text-slate-900">
-                    Change C — dynamic error-weighted regression
+                    Prior — dynamic error-weighted regression
                   </p>
                   <p className="mt-1 tabular-nums">
                     Static → dynamic holdout ATS{' '}

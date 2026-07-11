@@ -21,6 +21,9 @@
  *                           exp(-(pick-1)/scale) (was 40)
  *   wepaToEloScale        — WEPA → game Elo observation: mean + scale*WEPA
  *                           (was 8)
+ *   cpoeToEloScale        — CPOE (completion % over expected) → Elo add-on
+ *                           (was 0 — off until calibrated; nfelo research
+ *                           found CPOE stable YoY, R²≈0.226)
  *
  * Not tuned here (scale anchors, verified separately):
  *   QB_ELO_TO_POINTS, QB_ELO_MEAN, QB_ELO_REPLACEMENT
@@ -43,6 +46,8 @@ export interface QbEloParams {
   rookiePremiumMax: number
   rookieDecayPickScale: number
   wepaToEloScale: number
+  /** Elo points per 1 CPOE percentage-point (0 = disabled). */
+  cpoeToEloScale: number
 }
 
 /** Pre-calibration defaults (historical assumed values). */
@@ -53,6 +58,7 @@ export const DEFAULT_QB_ELO_PARAMS: QbEloParams = {
   rookiePremiumMax: 120,
   rookieDecayPickScale: 40,
   wepaToEloScale: 8,
+  cpoeToEloScale: 0,
 }
 
 /** Mutable active params — set by calibration before rebuilding ratings. */
@@ -132,9 +138,14 @@ export function qbGameEpaToEloPerformance(
   weightedEpa: number,
   leagueGameEpaMean = 0,
   params: QbEloParams = activeParams,
+  cpoe: number | null = null,
 ): number {
   const delta = (weightedEpa - leagueGameEpaMean) * params.wepaToEloScale
-  return QB_ELO_MEAN + delta
+  const cpoeDelta =
+    cpoe != null && Number.isFinite(cpoe)
+      ? cpoe * params.cpoeToEloScale
+      : 0
+  return QB_ELO_MEAN + delta + cpoeDelta
 }
 
 /** Convert QB Elo vs replacement into a point-spread contribution. */

@@ -26,6 +26,8 @@ export interface QBSeasonStats {
   passingYards: number
   interceptions: number
   passingEpa: number
+  /** Completion percentage over expected (nflverse passing_cpoe), when present. */
+  cpoe?: number | null
 }
 
 export interface ReceivingSeasonStats {
@@ -90,6 +92,8 @@ export interface PlayerValueCoeffs {
   qbYpaMult: number
   qbIntMult: number
   qbEpaMult: number
+  /** Points of baseValue per 1 CPOE percentage-point (0 = off). */
+  qbCpoeMult: number
   wrPprMult: number
   wrShareMult: number
   rbYpgDiv: number
@@ -100,6 +104,7 @@ export const DEFAULT_PLAYER_COEFFS: PlayerValueCoeffs = {
   qbYpaMult: 0.35,
   qbIntMult: 20,
   qbEpaMult: 1.5,
+  qbCpoeMult: 0,
   wrPprMult: 0.12,
   wrShareMult: 2,
   rbYpgDiv: 40,
@@ -131,8 +136,12 @@ export function valueQB(stats: QBSeasonStats): PlayerValue {
   const ypaAdj = (ypa - 7.0) * c.qbYpaMult
   const intAdj = -(intRate - 0.025) * c.qbIntMult
   const epaAdj = epaPerPlay * c.qbEpaMult
+  const cpoeAdj =
+    stats.cpoe != null && Number.isFinite(stats.cpoe)
+      ? stats.cpoe * c.qbCpoeMult
+      : 0
 
-  const baseValue = clamp(7.5 + ypaAdj + intAdj + epaAdj, 6.0, 9.5)
+  const baseValue = clamp(7.5 + ypaAdj + intAdj + epaAdj + cpoeAdj, 6.0, 9.5)
   return {
     playerId: stats.playerId,
     playerName: stats.playerName,
@@ -347,6 +356,12 @@ export function buildPlayerValuesFromSeasonRows(
         passingYards: Number(row.passing_yards) || 0,
         interceptions: Number(row.interceptions) || 0,
         passingEpa: Number(row.passing_epa) || 0,
+        cpoe: row.passing_cpoe !== '' && row.passing_cpoe != null
+          ? Number(row.passing_cpoe)
+          : row.completion_percentage_above_expectation !== '' &&
+              row.completion_percentage_above_expectation != null
+            ? Number(row.completion_percentage_above_expectation)
+            : null,
       })
     } else if ((pos === 'WR' || pos === 'TE') && Number(row.targets) >= 20) {
       pv = valueReceiver({

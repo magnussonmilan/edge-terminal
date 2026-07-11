@@ -1,0 +1,22 @@
+{
+  "generatedAt": "2026-07-11T01:05:53.324Z",
+  "source": "Inspired by nfelo \"Margin Probabilities from NFL Spreads\" (2020-11-01) — independent fit.",
+  "defaults": {
+    "baseScale": 11,
+    "bumpWeight": 0.04,
+    "bumpWidth": 0.85,
+    "bumpFalloff": 6,
+    "asymmetryMagnitude": 0.15,
+    "asymmetryDamp": 4
+  },
+  "fitted": {
+    "baseScale": 14,
+    "bumpWeight": 0.02,
+    "bumpWidth": 0.5,
+    "bumpFalloff": 10,
+    "asymmetryMagnitude": 0,
+    "asymmetryDamp": 4
+  },
+  "trainMse": 0.0022513346340357057,
+  "trainRows": 3615
+}

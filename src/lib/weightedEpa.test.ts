@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   computeTeamWeightedEpaByGame,
+  computeTeamWepaComponentsByGame,
   playContextWeight,
   weightPlay,
   type RawPlayByPlayRow,
@@ -49,5 +50,17 @@ describe('weightedEpa', () => {
     const byGame = computeTeamWeightedEpaByGame(plays)
     expect(byGame.g1.KC).toBeCloseTo(1 + 0.5 * 0.5)
     expect(byGame.g1.LV).toBeCloseTo(-0.5)
+  })
+
+  it('tracks offense and defense-allowed components separately', () => {
+    const plays: RawPlayByPlayRow[] = [
+      { ...base, posteam: 'KC', defteam: 'LV', epa: 1 },
+      { ...base, posteam: 'LV', defteam: 'KC', epa: 0.4 },
+    ]
+    const byGame = computeTeamWepaComponentsByGame(plays)
+    expect(byGame.g1.KC.offenseWepa).toBeCloseTo(1)
+    expect(byGame.g1.KC.defenseWepaAllowed).toBeCloseTo(0.4)
+    expect(byGame.g1.LV.offenseWepa).toBeCloseTo(0.4)
+    expect(byGame.g1.LV.defenseWepaAllowed).toBeCloseTo(1)
   })
 })

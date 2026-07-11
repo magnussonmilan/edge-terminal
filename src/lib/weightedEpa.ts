@@ -124,8 +124,15 @@ export function weightPlay(play: RawPlayByPlayRow): WeightedPlay | null {
   }
 }
 
+export interface TeamWepaComponents {
+  /** Sum of weighted EPA while this team had the ball. */
+  offenseWepa: number
+  /** Sum of weighted EPA allowed while this team was on defense. */
+  defenseWepaAllowed: number
+}
+
 /**
- * Team total weighted EPA by gameId → team → sum(weightedEpa).
+ * Team total weighted EPA by gameId → team → sum(weightedEpa) (offense only).
  */
 export function computeTeamWeightedEpaByGame(
   plays: RawPlayByPlayRow[],
@@ -136,6 +143,37 @@ export function computeTeamWeightedEpaByGame(
     if (!wp) continue
     if (!out[wp.gameId]) out[wp.gameId] = {}
     out[wp.gameId][wp.team] = (out[wp.gameId][wp.team] ?? 0) + wp.weightedEpa
+  }
+  return out
+}
+
+/**
+ * Per-team offense + defense-allowed weighted EPA by game.
+ * Defense allowed uses the same weighted plays attributed to defteam.
+ */
+export function computeTeamWepaComponentsByGame(
+  plays: RawPlayByPlayRow[],
+): Record<string, Record<string, TeamWepaComponents>> {
+  const out: Record<string, Record<string, TeamWepaComponents>> = {}
+  for (const raw of plays) {
+    const wp = weightPlay(raw)
+    if (!wp) continue
+    const defteam = (raw.defteam || '').trim()
+    if (!out[wp.gameId]) out[wp.gameId] = {}
+    const off = out[wp.gameId][wp.team] ?? {
+      offenseWepa: 0,
+      defenseWepaAllowed: 0,
+    }
+    off.offenseWepa += wp.weightedEpa
+    out[wp.gameId][wp.team] = off
+    if (defteam) {
+      const def = out[wp.gameId][defteam] ?? {
+        offenseWepa: 0,
+        defenseWepaAllowed: 0,
+      }
+      def.defenseWepaAllowed += wp.weightedEpa
+      out[wp.gameId][defteam] = def
+    }
   }
   return out
 }

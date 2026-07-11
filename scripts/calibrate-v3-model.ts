@@ -1,17 +1,19 @@
 /**
- * Calibrate + backtest v3 (QB-Elo + weighted EPA) vs v2 fixtures.
+ * Calibrate + backtest v3 with staged architecture changes:
+ *   1. Non-net per-team grades (vs legacy net margin)
+ *   2. Real play-level WEPA + calibrated PD/WEPA blend (vs weekly EPA 70/30)
+ *   3. CPOE in QB Elo (vs EPA-only)
+ *   4. Fitted margin-probability distribution (vs Walters table)
  *
- * Split (as requested): train through 2022, validate 2023–2024.
- * Data note: seasons 2009–2024 (injury reports from 2009; spread_line clean
- * from ~2005). Train 2009–2022 / validate 2023–2024.
+ * Each change is measured with its own before/after holdout delta.
+ * Split: train 2009–2022 / validate 2023–2024.
  *
- * WEPA: weekly player EPA summed by team as a stand-in when full PBP isn't
- * downloaded; weightPlay() remains the PBP path (unit-tested). QB updates use
- * starter passing_epa from nflverse weekly player stats.
+ * IP: independent reimplementation from published nfelo methodology articles —
+ * not a port of any nfelo/greerreNFL source.
  *
  * Usage: npm run calibrate:v3
  */
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile, access } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { computeBacktest, BREAKEVEN_WIN_RATE } from '../src/lib/backtest.ts'
@@ -19,6 +21,7 @@ import { scoreSeasons } from '../src/lib/calibration.ts'
 import {
   fitCoverModel,
   fitModelWeight,
+  setCoverProbabilityMode,
   type CoverModelCoeffs,
 } from '../src/lib/marketBlend.ts'
 import {
@@ -35,11 +38,18 @@ import {
   type QbRating,
 } from '../src/lib/qbElo.ts'
 import {
+  DEFAULT_PD_WEIGHT,
   processSeasonRatingsV3,
+  setPdWeight,
   type QbStartInfo,
   type QbStartLookup,
   type TeamWepaLookup,
 } from '../src/lib/teamEloV2.ts'
+import {
+  weightPlay,
+  type RawPlayByPlayRow,
+  type TeamWepaComponents,
+} from '../src/lib/weightedEpa.ts'
 import { buildPreseasonPriors } from '../src/lib/srsPrior.ts'
 import {
   buildIndependentV3Prediction,
@@ -53,6 +63,14 @@ import {
   type RegressionParams,
 } from '../src/lib/marketRegression.ts'
 import {
+  fitMarginDistribution,
+  setMarginDistParams,
+  resetMarginDistParams,
+  DEFAULT_MARGIN_DIST_PARAMS,
+  type MarginDistParams,
+} from '../src/lib/marginDistribution.ts'
+import { setStarRatingMode } from '../src/lib/keyNumbers.ts'
+import {
   ratingBeforeWeek,
   type GamePrediction,
 } from '../src/lib/predictions.ts'
@@ -62,8 +80,8 @@ import { HOME_FIELD_ADVANTAGE } from '../src/lib/powerRatings.ts'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const OUT_DIR = path.join(__dirname, '../src/data/nfl')
 const BASE = 'https://github.com/nflverse/nflverse-data/releases/download'
+const PBP_CACHE = path.join(OUT_DIR, 'team-wepa-pbp-cache.json')
 
-/** 2009–2024: matches published nfelo-style window; injuries available from 2009. */
 const SEASONS = [
   2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021,
   2022, 2023, 2024,
@@ -141,22 +159,29 @@ type StarterRow = {
   week: number
   passingEpa: number
   attempts: number
+  cpoe: number | null
+}
+
+type PipelineOpts = {
+  useNetMargin: boolean
+  pdWeight: number
+  /** When true, pass CPOE into qbGameEpaToEloPerformance. */
+  useCpoe: boolean
+  teamWepa: TeamWepaLookup
 }
 
 async function loadWeeklyQbAndTeamEpa(seasons: number[]): Promise<{
   starters: StarterRow[]
-  teamEpa: Map<string, number> // `${season}_${week}_${team}` → offense EPA sum
-  draftPick: Map<string, number> // player_id → overall pick
+  /** `${season}_${week}_${team}` → offense EPA sum (weekly stand-in). */
+  teamEpa: Map<string, number>
+  draftPick: Map<string, number>
 }> {
   const starters: StarterRow[] = []
   const teamEpa = new Map<string, number>()
   const draftPick = new Map<string, number>()
 
-  // Draft picks (best-effort for rookie seeds)
   try {
-    const draftText = await fetchText(
-      `${BASE}/draft_picks/draft_picks.csv`,
-    )
+    const draftText = await fetchText(`${BASE}/draft_picks/draft_picks.csv`)
     for (const row of parseCsv(draftText)) {
       const id = row.gsis_id || row.pfr_player_id || ''
       const pick = num(row.pick) ?? num(row.overall)
@@ -196,6 +221,9 @@ async function loadWeeklyQbAndTeamEpa(seasons: number[]): Promise<{
       const playerId = row.player_id || row.gsis_id || ''
       if (!playerId) continue
       const playerName = row.player_display_name || row.player_name || playerId
+      const cpoe =
+        num(row.passing_cpoe) ??
+        num(row.completion_percentage_above_expectation)
       const key = `${season}_${week}_${team}`
       const prev = qbByKey.get(key)
       if (!prev || attempts > prev.attempts) {
@@ -207,6 +235,7 @@ async function loadWeeklyQbAndTeamEpa(seasons: number[]): Promise<{
           week,
           passingEpa: passEpa,
           attempts,
+          cpoe,
         })
       }
     }
@@ -218,11 +247,217 @@ async function loadWeeklyQbAndTeamEpa(seasons: number[]): Promise<{
   return { starters, teamEpa, draftPick }
 }
 
+/**
+ * Build weekly-EPA stand-in components: offense = own weekly EPA sum,
+ * defenseAllowed = opponent's weekly EPA sum for the same game.
+ */
+function weeklyEpaAsComponents(
+  games: GameResult[],
+  teamEpa: Map<string, number>,
+): Map<string, TeamWepaComponents> {
+  const out = new Map<string, TeamWepaComponents>()
+  for (const g of games) {
+    const hOff = teamEpa.get(`${g.season}_${g.week}_${g.homeTeam}`)
+    const aOff = teamEpa.get(`${g.season}_${g.week}_${g.awayTeam}`)
+    if (hOff != null) {
+      out.set(`${g.gameId}_${g.homeTeam}`, {
+        offenseWepa: hOff,
+        defenseWepaAllowed: aOff ?? 0,
+      })
+    }
+    if (aOff != null) {
+      out.set(`${g.gameId}_${g.awayTeam}`, {
+        offenseWepa: aOff,
+        defenseWepaAllowed: hOff ?? 0,
+      })
+    }
+  }
+  return out
+}
+
+/**
+ * Download nflverse PBP, run weightPlay(), cache per-game team components.
+ * Streams line-by-line (never materializes the full CSV as objects) and
+ * writes the cache after each season so a crash can resume.
+ */
+async function loadPbpTeamWepa(
+  seasons: number[],
+): Promise<Map<string, TeamWepaComponents>> {
+  let merged: Record<string, TeamWepaComponents> = {}
+  const doneSeasons = new Set<number>()
+
+  try {
+    await access(PBP_CACHE)
+    const raw = JSON.parse(await readFile(PBP_CACHE, 'utf8')) as {
+      seasons?: number[]
+      rows: Record<string, TeamWepaComponents>
+    }
+    if (raw.rows && typeof raw.rows === 'object') {
+      merged = raw.rows
+      for (const s of raw.seasons ?? []) doneSeasons.add(s)
+      console.log(
+        `Loaded PBP WEPA cache: ${Object.keys(merged).length} team-game rows (${doneSeasons.size} seasons)`,
+      )
+    } else {
+      // Legacy flat map format
+      merged = raw as unknown as Record<string, TeamWepaComponents>
+      console.log(
+        `Loaded legacy PBP WEPA cache: ${Object.keys(merged).length} team-game rows`,
+      )
+      // Treat as complete if large enough
+      if (Object.keys(merged).length > 10000) {
+        return new Map(Object.entries(merged))
+      }
+    }
+  } catch {
+    console.log('No PBP WEPA cache — downloading play-by-play…')
+  }
+
+  const NEEDED = new Set([
+    'game_id',
+    'posteam',
+    'defteam',
+    'epa',
+    'score_differential',
+    'half_seconds_remaining',
+    'qtr',
+    'interception',
+    'fumble_lost',
+    'fumble',
+    'incomplete_pass',
+    'touchdown',
+    'pass',
+    'rush',
+    'play_type',
+    'passer_player_id',
+    'passer_player_name',
+    'special_teams_play',
+    'season_type',
+  ])
+
+  for (const season of seasons) {
+    if (doneSeasons.has(season)) {
+      console.log(`  PBP ${season}: cached — skip`)
+      continue
+    }
+    console.log(`Fetching PBP ${season}…`)
+    const res = await fetch(`${BASE}/pbp/play_by_play_${season}.csv`)
+    if (!res.ok) throw new Error(`Failed PBP ${season}: ${res.status}`)
+    if (!res.body) throw new Error(`No body for PBP ${season}`)
+
+    const reader = res.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let headers: string[] | null = null
+    let colIndex: Record<string, number> = {}
+    let playCount = 0
+    const seasonAgg: Record<string, Record<string, TeamWepaComponents>> = {}
+
+    const processLine = (line: string) => {
+      if (!line) return
+      if (!headers) {
+        headers = splitCsvLine(line)
+        colIndex = {}
+        headers.forEach((h, i) => {
+          if (NEEDED.has(h)) colIndex[h] = i
+        })
+        return
+      }
+      const cols = splitCsvLine(line)
+      const seasonType = (cols[colIndex.season_type] || 'REG').toUpperCase()
+      if (seasonType !== 'REG') return
+      const gameId = cols[colIndex.game_id] || ''
+      const posteam = (cols[colIndex.posteam] || '').trim()
+      const epa = cols[colIndex.epa]
+      if (!gameId || !posteam || epa === '' || epa == null) return
+
+      const raw: RawPlayByPlayRow = {
+        game_id: gameId,
+        posteam,
+        defteam: cols[colIndex.defteam],
+        epa,
+        score_differential: cols[colIndex.score_differential],
+        half_seconds_remaining: cols[colIndex.half_seconds_remaining],
+        qtr: cols[colIndex.qtr],
+        interception: cols[colIndex.interception],
+        fumble_lost: cols[colIndex.fumble_lost],
+        fumble: cols[colIndex.fumble],
+        incomplete_pass: cols[colIndex.incomplete_pass],
+        touchdown: cols[colIndex.touchdown],
+        pass: cols[colIndex.pass],
+        rush: cols[colIndex.rush],
+        play_type: cols[colIndex.play_type],
+        passer_player_id: cols[colIndex.passer_player_id],
+        passer_player_name: cols[colIndex.passer_player_name],
+        special_teams_play: cols[colIndex.special_teams_play],
+      }
+      const wp = weightPlay(raw)
+      if (!wp) return
+      playCount += 1
+      if (!seasonAgg[wp.gameId]) seasonAgg[wp.gameId] = {}
+      const off = seasonAgg[wp.gameId][wp.team] ?? {
+        offenseWepa: 0,
+        defenseWepaAllowed: 0,
+      }
+      off.offenseWepa += wp.weightedEpa
+      seasonAgg[wp.gameId][wp.team] = off
+      const defteam = (raw.defteam || '').trim()
+      if (defteam) {
+        const def = seasonAgg[wp.gameId][defteam] ?? {
+          offenseWepa: 0,
+          defenseWepaAllowed: 0,
+        }
+        def.defenseWepaAllowed += wp.weightedEpa
+        seasonAgg[wp.gameId][defteam] = def
+      }
+    }
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      let nl: number
+      while ((nl = buffer.indexOf('\n')) >= 0) {
+        const line = buffer.slice(0, nl).replace(/\r$/, '')
+        buffer = buffer.slice(nl + 1)
+        processLine(line)
+      }
+    }
+    if (buffer.trim()) processLine(buffer.replace(/\r$/, ''))
+
+    let n = 0
+    for (const [gameId, teams] of Object.entries(seasonAgg)) {
+      for (const [team, comps] of Object.entries(teams)) {
+        merged[`${gameId}_${team}`] = comps
+        n += 1
+      }
+    }
+    doneSeasons.add(season)
+    await writeFile(
+      PBP_CACHE,
+      JSON.stringify({ seasons: [...doneSeasons].sort((a, b) => a - b), rows: merged }),
+    )
+    console.log(
+      `  ${season}: ${playCount} weighted plays → ${n} team-games (cache updated)`,
+    )
+  }
+
+  console.log(`PBP WEPA ready: ${Object.keys(merged).length} team-game rows`)
+  return new Map(Object.entries(merged))
+}
+
+function lookupFromMap(
+  map: Map<string, TeamWepaComponents>,
+): TeamWepaLookup {
+  return (gameId, team) => map.get(`${gameId}_${team}`) ?? null
+}
+
 function buildQbLookups(
   games: GameResult[],
   starters: StarterRow[],
   draftPick: Map<string, number>,
   params: QbEloParams = getQbEloParams(),
+  useCpoe = false,
 ): {
   qbStart: QbStartLookup
   snapshots: QbRating[]
@@ -293,7 +528,12 @@ function buildQbLookups(
         const s = starterByKey.get(`${season}_${week}_${team}`)
         if (!s) continue
         const st = state.get(s.playerId)!
-        const perf = qbGameEpaToEloPerformance(s.passingEpa, 0, params)
+        const perf = qbGameEpaToEloPerformance(
+          s.passingEpa,
+          0,
+          params,
+          useCpoe ? s.cpoe : null,
+        )
         const career = rollingCareerAverage(st.history, st.elo)
         const next = updateQbRating(st.elo, perf, career, st.games, params)
         st.history.push(st.elo)
@@ -315,8 +555,8 @@ function buildIndependentPipeline(
   games: GameResult[],
   starters: StarterRow[],
   draftPick: Map<string, number>,
-  teamEpa: Map<string, number>,
   params: QbEloParams,
+  opts: PipelineOpts,
   logSeasons = false,
 ): {
   independent: V3GamePrediction[]
@@ -327,19 +567,14 @@ function buildIndependentPipeline(
   snapshots: QbRating[]
 } {
   setQbEloParams(params)
+  setPdWeight(opts.pdWeight)
   const { qbStart, snapshots } = buildQbLookups(
     games,
     starters,
     draftPick,
     params,
+    opts.useCpoe,
   )
-
-  const gameById = new Map(games.map((g) => [g.gameId, g]))
-  const teamWepa: TeamWepaLookup = (gameId, team) => {
-    const g = gameById.get(gameId)
-    if (!g) return null
-    return teamEpa.get(`${g.season}_${g.week}_${team}`) ?? null
-  }
 
   let priorFinal: Record<string, TeamRating> = {}
   const seasonBundles: Record<
@@ -360,8 +595,10 @@ function buildIndependentPipeline(
     const { final, byWeek } = processSeasonRatingsV3(seasonGames, seed, {
       hfa: HOME_FIELD_ADVANTAGE,
       qbStart,
-      teamWepa,
+      teamWepa: opts.teamWepa,
       neutralizeQbInUpdate: true,
+      pdWeight: opts.pdWeight,
+      useNetMargin: opts.useNetMargin,
     })
     seasonBundles[String(season)] = { seed, byWeek }
     priorFinal = final
@@ -434,24 +671,39 @@ const QB_ELO_GRIDS: Array<{ key: keyof QbEloParams; candidates: number[] }> = [
   { key: 'rookiePremiumMax', candidates: [60, 90, 120, 150] },
   { key: 'rookieDecayPickScale', candidates: [20, 30, 40, 60] },
   { key: 'wepaToEloScale', candidates: [4, 6, 8, 10, 12] },
+  // Include 0 so CPOE can be rejected on train
+  { key: 'cpoeToEloScale', candidates: [0, 1, 2, 3, 5, 8] },
 ]
 
 function calibrateQbEloParams(
   games: GameResult[],
   starters: StarterRow[],
   draftPick: Map<string, number>,
-  teamEpa: Map<string, number>,
+  pipelineBase: Omit<PipelineOpts, 'useCpoe'>,
+  useCpoe: boolean,
 ): { params: QbEloParams; log: QbCalibLogEntry[]; before: Summary; after: Summary } {
-  let params: QbEloParams = { ...DEFAULT_QB_ELO_PARAMS }
+  let params: QbEloParams = {
+    ...DEFAULT_QB_ELO_PARAMS,
+    // Start from previously-known good values when present
+    gameWeight: 0.3,
+    careerWeightCap: 0.45,
+    rookieDecayPickScale: 30,
+    cpoeToEloScale: useCpoe ? 0 : 0,
+  }
   const log: QbCalibLogEntry[] = []
+  const grids = useCpoe
+    ? QB_ELO_GRIDS
+    : QB_ELO_GRIDS.filter((g) => g.key !== 'cpoeToEloScale')
 
-  console.log('\n=== QB-Elo parameter calibration (select on train only) ===')
+  console.log(
+    `\n=== QB-Elo parameter calibration (useCpoe=${useCpoe}, select on train only) ===`,
+  )
   let { independent: baselineInd } = buildIndependentPipeline(
     games,
     starters,
     draftPick,
-    teamEpa,
     params,
+    { ...pipelineBase, useCpoe },
   )
   const before = summarize('v3-ind BEFORE qb calib', baselineInd)
   let bestTrain = before.trainWinRate
@@ -459,12 +711,12 @@ function calibrateQbEloParams(
 
   let round = 0
   let adoptedInRound = true
-  while (adoptedInRound && round < 4) {
+  while (adoptedInRound && round < 3) {
     round += 1
     adoptedInRound = false
     console.log(`\nQB-Elo calib round ${round}…`)
 
-    for (const grid of QB_ELO_GRIDS) {
+    for (const grid of grids) {
       let bestValForParam = params[grid.key]
       let bestTrainForParam = bestTrain
       let bestValHoldout = bestVal
@@ -477,8 +729,8 @@ function calibrateQbEloParams(
           games,
           starters,
           draftPick,
-          teamEpa,
           trial,
+          { ...pipelineBase, useCpoe },
         )
         const train = scoreSeasons(independent, TRAIN)
         const val = scoreSeasons(independent, VALIDATION)
@@ -492,10 +744,6 @@ function calibrateQbEloParams(
 
       const oldValue = params[grid.key]
       if (improved && bestValForParam !== oldValue) {
-        const note =
-          bestValHoldout + 0.02 < bestVal
-            ? 'Adopted on train; validation dropped >2pp — still selected on train only (honest log).'
-            : 'Adopted on train win rate.'
         log.push({
           step: `qbElo-round-${round}`,
           coefficient: grid.key,
@@ -505,7 +753,7 @@ function calibrateQbEloParams(
           trainWinRateAfter: bestTrainForParam,
           validationWinRateBefore: bestVal,
           validationWinRateAfter: bestValHoldout,
-          note,
+          note: 'Adopted on train win rate.',
         })
         console.log(
           `  ${grid.key}: ${oldValue} → ${bestValForParam} (train ${pct(bestTrain)} → ${pct(bestTrainForParam)}; val ${pct(bestVal)} → ${pct(bestValHoldout)})`,
@@ -535,15 +783,83 @@ function calibrateQbEloParams(
     games,
     starters,
     draftPick,
-    teamEpa,
     params,
+    { ...pipelineBase, useCpoe },
   )
   const after = summarize('v3-ind AFTER qb calib', afterInd)
   return { params, log, before, after }
 }
 
+function calibratePdWeight(
+  games: GameResult[],
+  starters: StarterRow[],
+  draftPick: Map<string, number>,
+  params: QbEloParams,
+  teamWepa: TeamWepaLookup,
+  useCpoe: boolean,
+): { pdWeight: number; before: Summary; after: Summary } {
+  console.log('\n=== PD / WEPA blend weight calibration (train only) ===')
+  const candidates = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+  const beforePipe = buildIndependentPipeline(
+    games,
+    starters,
+    draftPick,
+    params,
+    {
+      useNetMargin: false,
+      pdWeight: 0.3,
+      useCpoe,
+      teamWepa,
+    },
+  )
+  const before = summarize('blend BEFORE pd calib (0.3)', beforePipe.independent)
+
+  let bestW = 0.3
+  let bestTrain = before.trainWinRate
+  let bestVal = before.validationWinRate
+
+  for (const w of candidates) {
+    if (w === 0.3) continue
+    const { independent } = buildIndependentPipeline(
+      games,
+      starters,
+      draftPick,
+      params,
+      { useNetMargin: false, pdWeight: w, useCpoe, teamWepa },
+    )
+    const train = scoreSeasons(independent, TRAIN)
+    const val = scoreSeasons(independent, VALIDATION)
+    console.log(
+      `  pdWeight=${w}: train ${pct(train.overallWinRate)} val ${pct(val.overallWinRate)}`,
+    )
+    if (train.overallWinRate > bestTrain + 1e-12) {
+      bestTrain = train.overallWinRate
+      bestW = w
+      bestVal = val.overallWinRate
+    }
+  }
+
+  console.log(
+    `Best pdWeight=${bestW} (train ${pct(bestTrain)}, val ${pct(bestVal)})`,
+  )
+  const afterPipe = buildIndependentPipeline(
+    games,
+    starters,
+    draftPick,
+    params,
+    { useNetMargin: false, pdWeight: bestW, useCpoe, teamWepa },
+  )
+  const after = summarize(`blend AFTER pd=${bestW}`, afterPipe.independent)
+  return { pdWeight: bestW, before, after }
+}
+
 async function main() {
   await mkdir(OUT_DIR, { recursive: true })
+
+  // Default star/cover modes for staged baselines
+  setStarRatingMode('walters')
+  setCoverProbabilityMode('logistic')
+  resetMarginDistParams()
 
   const games = JSON.parse(
     await readFile(path.join(OUT_DIR, 'games.json'), 'utf8'),
@@ -559,26 +875,254 @@ async function main() {
   }
 
   const { starters, teamEpa, draftPick } = await loadWeeklyQbAndTeamEpa(SEASONS)
+  const weeklyComponents = weeklyEpaAsComponents(games, teamEpa)
+  const weeklyLookup = lookupFromMap(weeklyComponents)
 
-  // --- 1) QB-Elo calibration (independent only) ---
-  const qbCalib = calibrateQbEloParams(games, starters, draftPick, teamEpa)
-  setQbEloParams(qbCalib.params)
+  const pbpMap = await loadPbpTeamWepa(SEASONS)
+  const pbpLookup = lookupFromMap(pbpMap)
+  const pbpCoverage = games.filter(
+    (g) =>
+      pbpMap.has(`${g.gameId}_${g.homeTeam}`) &&
+      pbpMap.has(`${g.gameId}_${g.awayTeam}`),
+  ).length
+  console.log(
+    `PBP WEPA coverage: ${pbpCoverage}/${games.length} games (${pct(pbpCoverage / games.length)})`,
+  )
 
-  console.log('\nSRS prior: prior-season-decay (fallback — no win-total odds)')
-  const {
-    independent,
-    seasonBundles,
-    snapshots,
-  } = buildIndependentPipeline(
+  // Prefer PBP; fall back to weekly components when a game is missing
+  const hybridLookup: TeamWepaLookup = (gameId, team) =>
+    pbpLookup(gameId, team) ?? weeklyLookup(gameId, team)
+
+  // ─── Change 1: non-net vs net (weekly EPA, fixed 70/30, no CPOE, Walters) ───
+  console.log('\n========== CHANGE 1: Non-net grades ==========')
+  setStarRatingMode('walters')
+  const baseParams: QbEloParams = {
+    ...DEFAULT_QB_ELO_PARAMS,
+    gameWeight: 0.3,
+    careerWeightCap: 0.45,
+    rookieDecayPickScale: 30,
+    cpoeToEloScale: 0,
+  }
+  const netPipe = buildIndependentPipeline(games, starters, draftPick, baseParams, {
+    useNetMargin: true,
+    pdWeight: 0.3,
+    useCpoe: false,
+    teamWepa: weeklyLookup,
+  })
+  const nonNetPipe = buildIndependentPipeline(
     games,
     starters,
     draftPick,
-    teamEpa,
-    qbCalib.params,
-    true,
+    baseParams,
+    {
+      useNetMargin: false,
+      pdWeight: 0.3,
+      useCpoe: false,
+      teamWepa: weeklyLookup,
+    },
+  )
+  const change1Before = summarize('C1 BEFORE (net margin)', netPipe.independent)
+  const change1After = summarize(
+    'C1 AFTER (non-net grades)',
+    nonNetPipe.independent,
+  )
+  const change1Helped =
+    change1After.validationWinRate > change1Before.validationWinRate + 0.005
+
+  // ─── Change 2: real PBP WEPA + calibrated PD blend (QB params held fixed) ───
+  console.log('\n========== CHANGE 2: Real WEPA + PD blend ==========')
+  const change2BeforePipe = buildIndependentPipeline(
+    games,
+    starters,
+    draftPick,
+    baseParams,
+    {
+      useNetMargin: false,
+      pdWeight: 0.3,
+      useCpoe: false,
+      teamWepa: weeklyLookup,
+    },
+  )
+  const change2Before = summarize(
+    'C2 BEFORE (weekly EPA, pd=0.3)',
+    change2BeforePipe.independent,
   )
 
-  // --- 2) Market blend: fit weight + cover on train ---
+  // Calibrate PD weight on PBP path with fixed QB params (isolate WEPA/blend)
+  const pdCalib = calibratePdWeight(
+    games,
+    starters,
+    draftPick,
+    baseParams,
+    hybridLookup,
+    false,
+  )
+  const change2After = pdCalib.after
+  const change2Helped =
+    change2After.validationWinRate > change2Before.validationWinRate + 0.005
+  const pdBeatAssumed70_30 =
+    pdCalib.pdWeight !== 0.3 &&
+    change2After.trainWinRate > change2Before.trainWinRate + 1e-12
+
+  // Fit QB params once on the post-C2 path (used by C3+; not part of C2 delta)
+  const qbPre = calibrateQbEloParams(
+    games,
+    starters,
+    draftPick,
+    {
+      useNetMargin: false,
+      pdWeight: pdCalib.pdWeight,
+      teamWepa: hybridLookup,
+    },
+    false,
+  )
+
+  // ─── Change 3: CPOE only (hold all other QB params fixed) ───
+  console.log('\n========== CHANGE 3: CPOE ==========')
+  setStarRatingMode('walters')
+  const cpoeOffParams = { ...qbPre.params, cpoeToEloScale: 0 }
+  const change3BeforePipe = buildIndependentPipeline(
+    games,
+    starters,
+    draftPick,
+    cpoeOffParams,
+    {
+      useNetMargin: false,
+      pdWeight: pdCalib.pdWeight,
+      useCpoe: false,
+      teamWepa: hybridLookup,
+    },
+  )
+  const change3Before = summarize(
+    'C3 BEFORE (no CPOE)',
+    change3BeforePipe.independent,
+  )
+
+  // Grid-search only cpoeToEloScale on train
+  let bestCpoe = 0
+  let bestCpoeTrain = change3Before.trainWinRate
+  let bestCpoeVal = change3Before.validationWinRate
+  for (const scale of [0, 1, 2, 3, 5, 8]) {
+    if (scale === 0) continue
+    const trial = { ...cpoeOffParams, cpoeToEloScale: scale }
+    const { independent } = buildIndependentPipeline(
+      games,
+      starters,
+      draftPick,
+      trial,
+      {
+        useNetMargin: false,
+        pdWeight: pdCalib.pdWeight,
+        useCpoe: true,
+        teamWepa: hybridLookup,
+      },
+    )
+    const train = scoreSeasons(independent, TRAIN)
+    const val = scoreSeasons(independent, VALIDATION)
+    console.log(
+      `  cpoeToEloScale=${scale}: train ${pct(train.overallWinRate)} val ${pct(val.overallWinRate)}`,
+    )
+    if (train.overallWinRate > bestCpoeTrain + 1e-12) {
+      bestCpoeTrain = train.overallWinRate
+      bestCpoe = scale
+      bestCpoeVal = val.overallWinRate
+    }
+  }
+  const finalParams: QbEloParams = {
+    ...cpoeOffParams,
+    cpoeToEloScale: bestCpoe,
+  }
+  console.log(
+    `CPOE: selected scale=${bestCpoe} (train ${pct(change3Before.trainWinRate)} → ${pct(bestCpoeTrain)}; val ${pct(change3Before.validationWinRate)} → ${pct(bestCpoeVal)})`,
+  )
+  const change3AfterPipe = buildIndependentPipeline(
+    games,
+    starters,
+    draftPick,
+    finalParams,
+    {
+      useNetMargin: false,
+      pdWeight: pdCalib.pdWeight,
+      useCpoe: bestCpoe > 0,
+      teamWepa: hybridLookup,
+    },
+  )
+  const change3After = summarize(
+    'C3 AFTER (CPOE grid)',
+    change3AfterPipe.independent,
+  )
+  const cpoeEarned = bestCpoe > 0
+  const change3Helped =
+    change3After.validationWinRate > change3Before.validationWinRate + 0.005
+
+  // ─── Change 4: fitted margin distribution ───
+  console.log('\n========== CHANGE 4: Fitted margin distribution ==========')
+  setStarRatingMode('walters')
+  setCoverProbabilityMode('logistic')
+  const change4BeforePipe = buildIndependentPipeline(
+    games,
+    starters,
+    draftPick,
+    finalParams,
+    {
+      useNetMargin: false,
+      pdWeight: pdCalib.pdWeight,
+      useCpoe: bestCpoe > 0,
+      teamWepa: hybridLookup,
+    },
+  )
+  const change4Before = summarize(
+    'C4 BEFORE (Walters table)',
+    change4BeforePipe.independent,
+  )
+
+  const marginRows = games
+    .filter(
+      (g) =>
+        TRAIN.includes(g.season) &&
+        g.spreadLine != null &&
+        g.homeScore != null &&
+        g.awayScore != null,
+    )
+    .map((g) => ({
+      postedSpread: g.spreadLine!,
+      homeMargin: g.homeScore! - g.awayScore!,
+    }))
+  const marginFit = fitMarginDistribution(marginRows)
+  console.log(
+    `Fitted margin params: ${JSON.stringify(marginFit.params)} (train MSE ${marginFit.trainMse.toFixed(6)})`,
+  )
+  setMarginDistParams(marginFit.params)
+  setStarRatingMode('fitted')
+  setCoverProbabilityMode('fitted-margins')
+
+  const change4AfterPipe = buildIndependentPipeline(
+    games,
+    starters,
+    draftPick,
+    finalParams,
+    {
+      useNetMargin: false,
+      pdWeight: pdCalib.pdWeight,
+      useCpoe: bestCpoe > 0,
+      teamWepa: hybridLookup,
+    },
+    true,
+  )
+  const change4After = summarize(
+    'C4 AFTER (fitted margins)',
+    change4AfterPipe.independent,
+  )
+  const change4Helped =
+    change4After.validationWinRate > change4Before.validationWinRate + 0.005
+
+  // ─── Final artifacts: market blend on post-C4 independent ───
+  const independent = change4AfterPipe.independent
+  const seasonBundles = change4AfterPipe.seasonBundles
+  const snapshots = change4AfterPipe.snapshots
+  setQbEloParams(finalParams)
+  setPdWeight(pdCalib.pdWeight)
+
   const trainRows = independent
     .filter(
       (p) =>
@@ -613,7 +1157,6 @@ async function main() {
   })
   const coverCoeffs: CoverModelCoeffs = fitCoverModel(coverRows)
 
-  // Static constant-weight blend (independent selection) — "before" for regression change
   const blendedStatic = independent.map((p) =>
     buildMarketBlendedV3Prediction(p, modelWeight, coverCoeffs, {
       blendMode: 'static-constant',
@@ -623,7 +1166,6 @@ async function main() {
     buildMarketBlendedV3PredictionLegacy(p, modelWeight, coverCoeffs),
   )
 
-  // --- 3) Dynamic error-weighted regression: calibrate halfLife + normalizer on train ---
   console.log('\n=== Dynamic market regression calibration (train only) ===')
   const halfLifeCandidates = [4, 6, 8, 10, 12, 16]
   const normalizerCandidates = [3, 4, 6, 8, 10, 12]
@@ -683,7 +1225,7 @@ async function main() {
       row.normalizer === bestReg.normalizer
   }
   console.log(
-    `Best regression params: halfLife=${bestReg.halfLifeGames}, normalizer=${bestReg.normalizer}, coldStart=${bestReg.coldStartWeight} (train ATS ${pct(bestTrainAts)}, Brier ${bestTrainBrier.toFixed(3)})`,
+    `Best regression params: halfLife=${bestReg.halfLifeGames}, normalizer=${bestReg.normalizer}`,
   )
 
   const blendedDynamic = buildDynamicMarketBlendedPredictions(
@@ -693,7 +1235,7 @@ async function main() {
   )
 
   const v2Summary = summarize('v2 (power+stars)', v2Preds)
-  const v3IndSummary = summarize('v3-independent (calibrated QB)', independent)
+  const v3IndSummary = summarize('v3-independent (final)', independent)
   const blendPlayabilityBefore = summarize(
     'v3-blend LEGACY playability',
     blendedLegacy,
@@ -712,45 +1254,24 @@ async function main() {
   blendDynamic.beatsV2Holdout =
     blendDynamic.validationWinRate > v2Summary.validationWinRate + 0.01
 
-  const qbHelpedHoldout =
-    v3IndSummary.validationWinRate > qbCalib.before.validationWinRate + 0.005
-  const playabilityGrew =
-    blendStatic.validationGames > blendPlayabilityBefore.validationGames * 1.5
-  const dynamicHelpedBrier =
-    blendDynamic.validationBrier < blendStatic.validationBrier - 0.002
-  const dynamicHelpedAts =
-    blendDynamic.validationWinRate > blendStatic.validationWinRate + 0.005
-
   const parts: string[] = []
-  if (qbHelpedHoldout) {
-    parts.push(
-      `QB-Elo calib moved holdout ATS ${pct(qbCalib.before.validationWinRate)} → ${pct(v3IndSummary.validationWinRate)}.`,
-    )
-  } else {
-    parts.push(
-      `QB-Elo calib did not meaningfully improve holdout ATS (${pct(qbCalib.before.validationWinRate)} → ${pct(v3IndSummary.validationWinRate)}).`,
-    )
-  }
-  if (playabilityGrew) {
-    parts.push(
-      `Playability redesign holdout n ${blendPlayabilityBefore.validationGames} → ${blendStatic.validationGames}.`,
-    )
-  }
-  if (dynamicHelpedAts || dynamicHelpedBrier) {
-    parts.push(
-      `Dynamic regression vs static: holdout ATS ${pct(blendStatic.validationWinRate)} → ${pct(blendDynamic.validationWinRate)}, Brier ${blendStatic.validationBrier.toFixed(3)} → ${blendDynamic.validationBrier.toFixed(3)}.`,
-    )
-  } else {
-    parts.push(
-      `Dynamic error-weighted regression did not improve holdout vs static constant weight (ATS ${pct(blendStatic.validationWinRate)} → ${pct(blendDynamic.validationWinRate)}, Brier ${blendStatic.validationBrier.toFixed(3)} → ${blendDynamic.validationBrier.toFixed(3)}) — trailing per-team errors may not be stable enough to exploit.`,
-    )
-  }
+  parts.push(
+    `C1 non-net: holdout ATS ${pct(change1Before.validationWinRate)} → ${pct(change1After.validationWinRate)}${change1Helped ? '' : ' (no meaningful gain)'}.`,
+  )
+  parts.push(
+    `C2 real WEPA + pdWeight=${pdCalib.pdWeight}: holdout ATS ${pct(change2Before.validationWinRate)} → ${pct(change2After.validationWinRate)}${change2Helped ? '' : ' (no meaningful gain)'}.`,
+  )
+  parts.push(
+    `C3 CPOE (scale=${finalParams.cpoeToEloScale}): holdout ATS ${pct(change3Before.validationWinRate)} → ${pct(change3After.validationWinRate)}${cpoeEarned ? (change3Helped ? '' : ' (earned on train, not holdout)') : ' (coefficient not earned — stayed 0 or no train gain)'}.`,
+  )
+  parts.push(
+    `C4 fitted margins: holdout ATS ${pct(change4Before.validationWinRate)} → ${pct(change4After.validationWinRate)}${change4Helped ? '' : ' (no meaningful gain)'}.`,
+  )
   if (!v3IndSummary.beatsV2Holdout && !blendDynamic.beatsV2Holdout) {
-    parts.push('Neither v3 variant clearly beats v2 on holdout.')
+    parts.push('Neither final v3 variant clearly beats v2 on holdout.')
   }
   const verdict = parts.join(' ')
-
-  console.log(verdict)
+  console.log('\n' + verdict)
 
   await writeFile(
     path.join(OUT_DIR, 'predictions-v3-independent.json'),
@@ -784,8 +1305,23 @@ async function main() {
       {
         generatedAt: new Date().toISOString(),
         defaults: DEFAULT_QB_ELO_PARAMS,
-        fitted: qbCalib.params,
-        log: qbCalib.log,
+        fitted: finalParams,
+        log: [
+          ...qbPre.log,
+          {
+            step: 'cpoe-only',
+            coefficient: 'cpoeToEloScale',
+            oldValue: 0,
+            newValue: bestCpoe,
+            trainWinRateBefore: change3Before.trainWinRate,
+            trainWinRateAfter: change3After.trainWinRate,
+            validationWinRateBefore: change3Before.validationWinRate,
+            validationWinRateAfter: change3After.validationWinRate,
+            note: cpoeEarned
+              ? 'Adopted on train win rate.'
+              : 'No train gain — kept 0.',
+          },
+        ],
       },
       null,
       2,
@@ -796,11 +1332,25 @@ async function main() {
     JSON.stringify(
       {
         generatedAt: new Date().toISOString(),
-        source:
-          'Inspired by nfelo "Using Market Regression to Improve Prediction Accuracy in the NFL" (2020-11-08) — independent implementation from published description.',
         fitted: bestReg,
         staticModelWeight: modelWeight,
         log: regLog,
+      },
+      null,
+      2,
+    ),
+  )
+  await writeFile(
+    path.join(OUT_DIR, 'margin-distribution-calibration-log.json'),
+    JSON.stringify(
+      {
+        generatedAt: new Date().toISOString(),
+        source:
+          'Inspired by nfelo "Margin Probabilities from NFL Spreads" (2020-11-01) — independent fit.',
+        defaults: DEFAULT_MARGIN_DIST_PARAMS,
+        fitted: marginFit.params,
+        trainMse: marginFit.trainMse,
+        trainRows: marginRows.length,
       },
       null,
       2,
@@ -810,7 +1360,7 @@ async function main() {
   const report = {
     generatedAt: new Date().toISOString(),
     methodology:
-      'v3 QB-Elo + weekly-EPA + market blend. Dynamic error-weighted regression (EWMA per-team trailing error → blend weight) vs static constant weight, reported separately. Selection still independent-star. IP: independent reimplementation from public methodology descriptions — not a port of nfelo source.',
+      'v3: non-net grades + play-level WEPA (weightPlay) + calibrated PD/WEPA blend + CPOE QB signal + fitted margin distribution. Four architecture changes reported with separate before/after holdout deltas. IP: independent reimplementation from published methodology — not a port of nfelo source.',
     requestedSplit: {
       train: '2009–2022',
       validation: '2023–2024',
@@ -818,15 +1368,17 @@ async function main() {
     actualSplit: {
       trainSeasons: TRAIN,
       validationSeasons: VALIDATION,
-      note: 'Seasons 2009–2024 (injury reports available from 2009; spread_line clean earlier).',
+      note: 'Seasons 2009–2024.',
     },
     srsPrior: {
       method: 'prior-season-decay',
       note: 'No free historical win-total odds — SRS stretch goal blocked on data.',
     },
-    wepaNote:
-      'Team WEPA approximated from weekly player EPA sums; play-level weightPlay() used when PBP rows are supplied (unit tests).',
-    qbEloParams: qbCalib.params,
+    wepaNote: `Play-level weightPlay() on nflverse PBP (cached). Coverage ${pbpCoverage}/${games.length} games; weekly player-EPA sums as fallback. Non-net grade = offense WEPA − defense WEPA allowed.`,
+    pdWeight: pdCalib.pdWeight,
+    pdWeightDefault: DEFAULT_PD_WEIGHT,
+    qbEloParams: finalParams,
+    marginDistParams: marginFit.params,
     modelWeight,
     marketRegression: bestReg,
     coverCoeffs,
@@ -837,19 +1389,54 @@ async function main() {
     v3MarketBlended: blendDynamic,
     v3MarketBlendedStatic: blendStatic,
     changes: {
+      nonNetGrading: {
+        before: change1Before,
+        after: change1After,
+        helpedHoldout: change1Helped,
+        note: 'Independent per-team WEPA grades vs forced awayNet=-homeNet. Weekly EPA stand-in for clean isolation of the grading change.',
+      },
+      realWepaAndBlend: {
+        before: change2Before,
+        after: change2After,
+        pdWeightBefore: 0.3,
+        pdWeightAfter: pdCalib.pdWeight,
+        helpedHoldout: change2Helped,
+        beatAssumed70_30: pdBeatAssumed70_30,
+        note: 'Play-level PBP WEPA on the live rating path + train-fit PD/WEPA blend weight (not assumed 70/30).',
+      },
+      cpoe: {
+        before: change3Before,
+        after: change3After,
+        cpoeToEloScale: finalParams.cpoeToEloScale,
+        earnedCoefficient: cpoeEarned,
+        helpedHoldout: change3Helped,
+        note: 'passing_cpoe from nflverse weekly stats as QB Elo add-on. Scale=0 means train rejected CPOE.',
+      },
+      fittedMarginDistribution: {
+        before: change4Before,
+        after: change4After,
+        helpedHoldout: change4Helped,
+        params: marginFit.params,
+        trainMse: marginFit.trainMse,
+        note: 'Replaces Walters KEY_NUMBER_PCT table with fitted Laplace+key-bumps+asymmetry model for star differentials; cover uses fitted margins too.',
+      },
+      // Keep prior change cards for continuity on the Backtest page
       qbEloCalibration: {
-        before: qbCalib.before,
-        after: v3IndSummary,
+        before: qbPre.before,
+        after: change3After,
         paramsBefore: DEFAULT_QB_ELO_PARAMS,
-        paramsAfter: qbCalib.params,
-        helpedHoldout: qbHelpedHoldout,
+        paramsAfter: finalParams,
+        helpedHoldout:
+          change3After.validationWinRate > qbPre.before.validationWinRate + 0.005,
       },
       marketBlendPlayability: {
         before: blendPlayabilityBefore,
         after: blendStatic,
         beforeMode: 'legacy-blended-stars',
         afterMode: 'independent-selection',
-        sampleGrew: playabilityGrew,
+        sampleGrew:
+          blendStatic.validationGames >
+          blendPlayabilityBefore.validationGames * 1.5,
         note: 'Selection uses independent star disagreement; betting signal is blended spread + coverProbability.',
       },
       marketRegressionDynamic: {
@@ -858,9 +1445,11 @@ async function main() {
         beforeMode: 'static-constant',
         afterMode: 'dynamic-error-weighted',
         params: bestReg,
-        helpedHoldoutAts: dynamicHelpedAts,
-        helpedHoldoutBrier: dynamicHelpedBrier,
-        note: 'Trailing per-team EWMA squared error → relative_accuracy (sqrt each team then average) → clamped-linear weight. Half-life + normalizer fit on train ATS only.',
+        helpedHoldoutAts:
+          blendDynamic.validationWinRate > blendStatic.validationWinRate + 0.005,
+        helpedHoldoutBrier:
+          blendDynamic.validationBrier < blendStatic.validationBrier - 0.002,
+        note: 'Trailing per-team EWMA squared error → blend weight.',
       },
     },
     verdict,

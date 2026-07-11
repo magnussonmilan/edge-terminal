@@ -42,6 +42,36 @@ export type V3CalibrationReport = {
   v3Independent: ModelSummary
   v3MarketBlended: ModelSummary
   changes?: {
+    nonNetGrading?: {
+      before: ModelSummary
+      after: ModelSummary
+      helpedHoldout?: boolean
+      note?: string
+    }
+    realWepaAndBlend?: {
+      before: ModelSummary
+      after: ModelSummary
+      helpedHoldout?: boolean
+      pdWeightBefore?: number
+      pdWeightAfter?: number
+      beatAssumed70_30?: boolean
+      note?: string
+    }
+    cpoe?: {
+      before: ModelSummary
+      after: ModelSummary
+      helpedHoldout?: boolean
+      earnedCoefficient?: boolean
+      cpoeToEloScale?: number
+      note?: string
+    }
+    fittedMarginDistribution?: {
+      before: ModelSummary
+      after: ModelSummary
+      helpedHoldout?: boolean
+      note?: string
+      trainMse?: number
+    }
     qbEloCalibration?: {
       before: ModelSummary
       after: ModelSummary

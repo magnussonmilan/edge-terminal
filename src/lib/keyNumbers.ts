@@ -1,7 +1,16 @@
 /**
- * NFL key-number hit rates (industry-standard margins) and star-rating calculator.
- * Values are numeric lookup only — not reproduced prose from any book.
+ * NFL key-number hit rates and star-rating calculator.
+ *
+ * Default path uses a fitted margin-probability distribution (see
+ * marginDistribution.ts). The static Walters-style KEY_NUMBER_PCT table is
+ * retained for staged before/after calibration only.
  */
+
+import {
+  getMarginDistParams,
+  probabilityBetween,
+  type MarginDistParams,
+} from './marginDistribution'
 
 /** Spread margin → approximate % of games decided by exactly this margin. */
 export const KEY_NUMBER_PCT: Record<number, number> = {
@@ -41,14 +50,35 @@ const STAR_THRESHOLDS: Array<{ minPct: number; stars: number }> = [
   { minPct: 5.5, stars: 0.5 },
 ]
 
-/**
- * Sum key-number percentages for every integer between the model's predicted
- * spread and the posted spread (half-credit for whole numbers at either end).
- * When the range straddles zero (opposite sides favored), deduct one point's
- * key-number value once (KEY_NUMBER_PCT[1]).
- * Below 5.5% combined → not a playable signal.
- */
-export function calculateStarRating(
+export type StarRatingMode = 'fitted' | 'walters'
+
+let activeMode: StarRatingMode = 'fitted'
+
+export function getStarRatingMode(): StarRatingMode {
+  return activeMode
+}
+
+export function setStarRatingMode(mode: StarRatingMode): void {
+  activeMode = mode
+}
+
+function starsFromPct(differentialPct: number): StarRating {
+  const playable = differentialPct >= 5.5
+  if (!playable) {
+    return { differentialPct, stars: 0, playable: false }
+  }
+  let stars = 0.5
+  for (const t of STAR_THRESHOLDS) {
+    if (differentialPct >= t.minPct) {
+      stars = t.stars
+      break
+    }
+  }
+  return { differentialPct, stars, playable: true }
+}
+
+/** Static Walters-table lookup (legacy). */
+export function calculateStarRatingWalters(
   modelSpread: number,
   postedSpread: number,
 ): StarRating {
@@ -74,27 +104,53 @@ export function calculateStarRating(
     differentialPct += half ? pct * 0.5 : pct
   }
 
-  // Opposite sides of the number: deduct one point's value for crossing zero
   if (lo < 0 && hi > 0) {
     differentialPct -= KEY_NUMBER_PCT[1] ?? 0
   }
 
   differentialPct = Math.max(0, differentialPct)
+  return starsFromPct(differentialPct)
+}
 
-  const playable = differentialPct >= 5.5
-  if (!playable) {
-    return { differentialPct, stars: 0, playable: false }
+/**
+ * Fitted margin-distribution star rating.
+ * Centers the generative model on the posted spread (market-calibrated
+ * outcome center) and sums probability mass between model and posted.
+ */
+export function calculateStarRatingFitted(
+  modelSpread: number,
+  postedSpread: number,
+  params?: MarginDistParams,
+): StarRating {
+  const lo = Math.min(modelSpread, postedSpread)
+  const hi = Math.max(modelSpread, postedSpread)
+  if (Math.abs(hi - lo) < 1e-9) {
+    return { differentialPct: 0, stars: 0, playable: false }
   }
-
-  let stars = 0.5
-  for (const t of STAR_THRESHOLDS) {
-    if (differentialPct >= t.minPct) {
-      stars = t.stars
-      break
-    }
+  const pParams = params ?? getMarginDistParams()
+  let differentialPct = probabilityBetween(postedSpread, lo, hi, pParams) * 100
+  // Opposite sides of zero: deduct one point's mass once (Walters analog)
+  if (lo < 0 && hi > 0) {
+    differentialPct = Math.max(
+      0,
+      differentialPct - probabilityBetween(postedSpread, 0.5, 1.5, pParams) * 100,
+    )
   }
+  return starsFromPct(differentialPct)
+}
 
-  return { differentialPct, stars, playable: true }
+/**
+ * Sum key-number / fitted probabilities for every integer between the model's
+ * predicted spread and the posted spread. Below 5.5% combined → not playable.
+ */
+export function calculateStarRating(
+  modelSpread: number,
+  postedSpread: number,
+): StarRating {
+  if (activeMode === 'walters') {
+    return calculateStarRatingWalters(modelSpread, postedSpread)
+  }
+  return calculateStarRatingFitted(modelSpread, postedSpread)
 }
 
 export function formatStars(stars: number): string {
