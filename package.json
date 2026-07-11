@@ -13,6 +13,7 @@
     "ingest:current-week": "tsx scripts/ingest-current-week.ts",
     "ingest:weather": "tsx scripts/ingest-weather.ts",
     "ingest:odds": "tsx scripts/ingest-odds.ts",
+    "ingest:mlb-elo": "tsx scripts/ingest-mlb-elo.ts",
     "calibrate": "tsx scripts/calibrate-model.ts",
     "calibrate:v3": "tsx scripts/calibrate-v3-model.ts",
     "diagnose:v3": "tsx scripts/diagnose-v3.ts",
