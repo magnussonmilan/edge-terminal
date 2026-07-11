@@ -41,12 +41,14 @@ export function ComparePage() {
   const calibrated = adapter.defaultBlendWeight()
   const seasons = adapter.listSeasons()
   const [season, setSeason] = useState(() =>
-    sport === 'mlb' ? (seasons[0] ?? 2025) : 2020,
+    sport === 'mlb' ? (seasons[0] ?? 2026) : 2020,
   )
   const groups = adapter.listGroups(season)
-  const [group, setGroup] = useState(() =>
-    sport === 'mlb' ? (groups.includes(5) ? 5 : (groups[0] ?? 1)) : 5,
-  )
+  const [group, setGroup] = useState(() => {
+    if (sport !== 'mlb') return 5
+    const nowMonth = new Date().getUTCMonth() + 1
+    return groups.includes(nowMonth) ? nowMonth : (groups[0] ?? 1)
+  })
   const games = useMemo(
     () => adapter.getGamesForComparison(season, group),
     [adapter, season, group],
@@ -71,14 +73,15 @@ export function ComparePage() {
   // Reset season/group/weight when sport changes
   useEffect(() => {
     const s = adapter.listSeasons()
-    const nextSeason = sport === 'mlb' ? (s[0] ?? 2025) : 2020
+    const nextSeason = sport === 'mlb' ? (s[0] ?? 2026) : 2020
     setSeason(nextSeason)
     const g = adapter.listGroups(nextSeason)
-    // Prefer Sep for MLB so NYY@BOS PM candidate is in the default window
+    // Prefer current calendar month for live MLB; fall back to first available
+    const nowMonth = new Date().getUTCMonth() + 1
     setGroup(
       sport === 'mlb'
-        ? g.includes(9)
-          ? 9
+        ? g.includes(nowMonth)
+          ? nowMonth
           : (g[0] ?? 1)
         : 5,
     )

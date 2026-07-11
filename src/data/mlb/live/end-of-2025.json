@@ -1,0 +1,169 @@
+{
+  "teams": [
+    {
+      "team": "ANA",
+      "eloRating": 1453.776640994517,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "ARI",
+      "eloRating": 1511.7094242140056,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "ATH",
+      "eloRating": 1471.398039,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "ATL",
+      "eloRating": 1509.4564358618877,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "BAL",
+      "eloRating": 1494.1619413803012,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "BOS",
+      "eloRating": 1534.5365688598622,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "CHC",
+      "eloRating": 1542.6984021768676,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "CHW",
+      "eloRating": 1431.3564005707854,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "CIN",
+      "eloRating": 1514.2976619529006,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "CLE",
+      "eloRating": 1524.994447918322,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "COL",
+      "eloRating": 1390.5505694863352,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "DET",
+      "eloRating": 1517.4168315579566,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "FLA",
+      "eloRating": 1454.30786,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "HOU",
+      "eloRating": 1525.8370110132425,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "KCR",
+      "eloRating": 1509.8382287797035,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "LAD",
+      "eloRating": 1556.6197062352605,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "MIA",
+      "eloRating": 1513.177351221373,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "MIL",
+      "eloRating": 1559.2834501105333,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "MIN",
+      "eloRating": 1469.7887821904108,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "NYM",
+      "eloRating": 1516.8248405592394,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "NYY",
+      "eloRating": 1560.6837449292648,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "OAK",
+      "eloRating": 1496.1660201843401,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "PHI",
+      "eloRating": 1553.4341196876605,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "PIT",
+      "eloRating": 1478.5662729927417,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "SDP",
+      "eloRating": 1539.2253202354977,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "SEA",
+      "eloRating": 1538.0718462734908,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "SFG",
+      "eloRating": 1504.5161300585091,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "STL",
+      "eloRating": 1496.2693632914975,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "TBD",
+      "eloRating": 1498.721586,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "TBR",
+      "eloRating": 1493.082866375897,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "TEX",
+      "eloRating": 1499.982964303928,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "TOR",
+      "eloRating": 1535.7523320884031,
+      "asOfDate": "2025-09-28"
+    },
+    {
+      "team": "WSN",
+      "eloRating": 1453.494650495265,
+      "asOfDate": "2025-09-28"
+    }
+  ]
+}

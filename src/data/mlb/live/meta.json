@@ -1,0 +1,25 @@
+{
+  "attributionNeilPaine": "Copyright (c) 2024 Neil Paine. Seed Elo from mlb-elo-latest.csv (MIT).",
+  "mlbStatsApi": "Copyright MLB Advanced Media, L.P. Use subject to http://gdx.mlb.com/components/copyright.txt (individual, non-commercial, non-bulk without written authorization).",
+  "methodology": {
+    "homeAdvantage": 24,
+    "k": 4,
+    "leagueMean": 1500,
+    "offseasonRetain": 0.6666666666666666,
+    "note": "K=4 constant Elo update approximates Neil Paine post-game ratings; not bit-identical MOV scaling."
+  },
+  "seedAsOf": "2025-05-09",
+  "backfill": {
+    "start": "2025-05-10",
+    "end": "2025-09-28",
+    "settledGameCount": 1857
+  },
+  "live": {
+    "season": 2026,
+    "ratingsAsOf": "2026-07-10",
+    "settled2026Count": 1414,
+    "upcomingCount": 62,
+    "generatedAt": "2026-07-11T14:25:24.388Z"
+  },
+  "honesty": "Neil Paine feed frozen for settled results at 2025-05-09; rows after that in the CSV are unsettled placeholders and were not used as results. Gap filled via MLB Stats API. Commercial use of Stats API data may require MLBAM authorization."
+}

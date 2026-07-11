@@ -1,15 +1,16 @@
 /**
- * MLB sport adapter — Neil Paine Elo probs (MIT), not a stub.
+ * MLB sport adapter — live 2026 predictions from Stats API backfill + Neil Paine seed.
  *
- * Copyright (c) 2024 Neil Paine
- * Source: https://github.com/Neil-Paine-1/MLB-WAR-data-historical
- *
- * Freshness is seasonal (not updating into 2026) — see MLB_META.
+ * Copyright (c) 2024 Neil Paine (MIT seed)
+ * Live results: MLB Stats API (see mlbStatsApi.ts terms)
  */
 
 import {
   getMlbGameById,
   getMlbGamesForMonth,
+  getMlbLiveGameById,
+  getMlbLiveGamesForMonth,
+  hasGenuineLiveMlbPredictions,
   listMlbMonths,
   listMlbSeasons,
   MLB_COPYRIGHT,
@@ -19,6 +20,7 @@ import { listCuratedPairs } from '../eventMatcher'
 import { listDiscoveredMlbPairs } from '../mlbDiscoveredPairsStore'
 import type { SportAdapter, SportGameOption } from '../sportAdapter'
 import type { MlbEloGame } from '../mlbTypes'
+import type { MlbLivePrediction } from '../mlbEloLive'
 
 const MONTH_NAMES = [
   '',
@@ -36,7 +38,7 @@ const MONTH_NAMES = [
   'Dec',
 ]
 
-function toSportGame(g: MlbEloGame): SportGameOption {
+function fromHistorical(g: MlbEloGame): SportGameOption {
   const month = Number(g.date.slice(5, 7))
   return {
     gameId: g.gameId,
@@ -52,10 +54,26 @@ function toSportGame(g: MlbEloGame): SportGameOption {
   }
 }
 
+function fromLive(g: MlbLivePrediction): SportGameOption {
+  const month = Number(g.date.slice(5, 7))
+  return {
+    gameId: g.gameId,
+    matchup: `${g.awayTeam} @ ${g.homeTeam}`,
+    homeTeam: g.homeTeam,
+    awayTeam: g.awayTeam,
+    season: g.season,
+    week: month,
+    date: g.date,
+    modelHomeWinProb: g.modelHomeWinProb,
+    modelSpread: null,
+    postedSpread: null,
+  }
+}
+
 export const mlbSportAdapter: SportAdapter = {
   sport: 'mlb',
   label: 'MLB',
-  hasLivePredictions: true,
+  hasLivePredictions: hasGenuineLiveMlbPredictions(),
   liveDataStatus: mlbLiveDataStatus(),
   copyrightNotice: MLB_COPYRIGHT,
   supportsMarketBlend: false,
@@ -73,12 +91,17 @@ export const mlbSportAdapter: SportAdapter = {
   },
 
   getGamesForComparison(season: number, group: number) {
-    return getMlbGamesForMonth(season, group).map(toSportGame)
+    if (season >= 2026) {
+      return getMlbLiveGamesForMonth(season, group).map(fromLive)
+    }
+    return getMlbGamesForMonth(season, group).map(fromHistorical)
   },
 
   getGame(gameId: string) {
-    const g = getMlbGameById(gameId)
-    return g ? toSportGame(g) : null
+    const live = getMlbLiveGameById(gameId)
+    if (live) return fromLive(live)
+    const hist = getMlbGameById(gameId)
+    return hist ? fromHistorical(hist) : null
   },
 
   listPredictionMarketPairs() {

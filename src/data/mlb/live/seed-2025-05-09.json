@@ -1,0 +1,155 @@
+{
+  "asOf": "2025-05-09",
+  "teams": [
+    {
+      "team": "ANA",
+      "eloRating": 1443.029077,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "ARI",
+      "eloRating": 1527.694645,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "ATH",
+      "eloRating": 1471.398039,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "ATL",
+      "eloRating": 1523.056405,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "BAL",
+      "eloRating": 1484.022926,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "BOS",
+      "eloRating": 1503.583515,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "CHC",
+      "eloRating": 1541.033103,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "CHW",
+      "eloRating": 1423.783578,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "CIN",
+      "eloRating": 1501.344329,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "CLE",
+      "eloRating": 1515.337198,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "COL",
+      "eloRating": 1413.888147,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "DET",
+      "eloRating": 1549.384254,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "FLA",
+      "eloRating": 1454.30786,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "HOU",
+      "eloRating": 1528.889195,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "KCR",
+      "eloRating": 1520.611233,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "LAD",
+      "eloRating": 1570.130115,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "MIL",
+      "eloRating": 1521.252783,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "MIN",
+      "eloRating": 1502.120049,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "NYM",
+      "eloRating": 1552.594525,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "NYY",
+      "eloRating": 1551.90074,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "PHI",
+      "eloRating": 1529.38437,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "PIT",
+      "eloRating": 1462.01426,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "SDP",
+      "eloRating": 1549.405429,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "SEA",
+      "eloRating": 1531.615026,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "SFG",
+      "eloRating": 1527.183797,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "STL",
+      "eloRating": 1510.41681,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "TBD",
+      "eloRating": 1498.721586,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "TEX",
+      "eloRating": 1489.876833,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "TOR",
+      "eloRating": 1486.00716,
+      "asOfDate": "2025-05-09"
+    },
+    {
+      "team": "WSN",
+      "eloRating": 1466.010824,
+      "asOfDate": "2025-05-09"
+    }
+  ]
+}

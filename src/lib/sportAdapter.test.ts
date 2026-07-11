@@ -65,33 +65,31 @@ describe('NflSportAdapter', () => {
 describe('MlbSportAdapter', () => {
   const mlb = getSportAdapter('mlb')
 
-  it('exposes real Elo games (not stub) with honest seasonal status', () => {
+  it('exposes genuine live 2026 predictions via Stats API backfill', () => {
     expect(mlb.sport).toBe('mlb')
     expect(mlb.hasLivePredictions).toBe(true)
     expect(mlb.supportsMarketBlend).toBe(false)
     expect(mlb.copyrightNotice).toContain('Neil Paine')
-    expect(mlb.liveDataStatus.toLowerCase()).toMatch(/seasonal|not.*2026/)
-    expect(MLB_META.freshness.status).toBe('seasonal')
-    expect(mlb.listSeasons().length).toBeGreaterThan(0)
+    expect(mlb.liveDataStatus.toLowerCase()).toMatch(/live via mlb stats api/)
+    expect(mlb.liveDataStatus).toMatch(/ratings updated through/)
+    expect(MLB_META.freshness.status).toBe('seasonal') // historical Neil Paine meta unchanged
+    expect(mlb.listSeasons()).toContain(2026)
 
-    const season = mlb.listSeasons()[0]!
-    const months = mlb.listGroups(season)
+    const months = mlb.listGroups(2026)
     expect(months.length).toBeGreaterThan(0)
-    const games = mlb.getGamesForComparison(season, months[0]!)
+    const games = mlb.getGamesForComparison(2026, months[0]!)
     expect(games.length).toBeGreaterThan(0)
+    expect(games[0]!.gameId.startsWith('mlb-')).toBe(true)
     expect(games[0]!.modelSpread).toBeNull()
     expect(games[0]!.modelHomeWinProb).toBeGreaterThan(0)
     expect(games[0]!.modelHomeWinProb).toBeLessThan(1)
   })
 
-  it('builds moneyline-primary comparison without blend', () => {
-    const season = 2025
-    const months = mlb.listGroups(season)
-    const month = months.includes(9) ? 9 : months[0]!
-    const games = mlb.getGamesForComparison(season, month)
-    const game =
-      games.find((g) => g.homeTeam === 'BOS' && g.awayTeam === 'NYY') ??
-      games[0]!
+  it('builds moneyline-primary comparison for a live 2026 game', () => {
+    const months = mlb.listGroups(2026)
+    const month = months[0]!
+    const games = mlb.getGamesForComparison(2026, month)
+    const game = games[0]!
     const cmp = buildUnifiedComparisonFromSportGame(game, {
       calibratedWeight: 1,
       supportsMarketBlend: false,
@@ -109,10 +107,6 @@ describe('MlbSportAdapter', () => {
       game.modelHomeWinProb,
       10,
     )
-    if (game.homeTeam === 'BOS' && game.awayTeam === 'NYY') {
-      expect(
-        cmp.moneylineVenues.some((v) => v.venueType === 'prediction_market'),
-      ).toBe(true)
-    }
+    expect(cmp.season).toBe(2026)
   })
 })

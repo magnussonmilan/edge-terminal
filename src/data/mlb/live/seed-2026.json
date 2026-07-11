@@ -1,0 +1,169 @@
+{
+  "teams": [
+    {
+      "team": "ANA",
+      "eloRating": 1469.184427329678,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "ARI",
+      "eloRating": 1507.806282809337,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "ATH",
+      "eloRating": 1480.932026,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "ATL",
+      "eloRating": 1506.3042905745917,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "BAL",
+      "eloRating": 1496.1079609202009,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "BOS",
+      "eloRating": 1523.024379239908,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "CHC",
+      "eloRating": 1528.465601451245,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "CHW",
+      "eloRating": 1454.2376003805236,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "CIN",
+      "eloRating": 1509.531774635267,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "CLE",
+      "eloRating": 1516.6629652788813,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "COL",
+      "eloRating": 1427.03371299089,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "DET",
+      "eloRating": 1511.6112210386377,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "FLA",
+      "eloRating": 1469.5385733333333,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "HOU",
+      "eloRating": 1517.2246740088283,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "KCR",
+      "eloRating": 1506.558819186469,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "LAD",
+      "eloRating": 1537.746470823507,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "MIA",
+      "eloRating": 1508.7849008142487,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "MIL",
+      "eloRating": 1539.522300073689,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "MIN",
+      "eloRating": 1479.8591881269406,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "NYM",
+      "eloRating": 1511.2165603728263,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "NYY",
+      "eloRating": 1540.4558299528433,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "OAK",
+      "eloRating": 1497.4440134562267,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "PHI",
+      "eloRating": 1535.6227464584404,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "PIT",
+      "eloRating": 1485.7108486618279,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "SDP",
+      "eloRating": 1526.150213490332,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "SEA",
+      "eloRating": 1525.381230848994,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "SFG",
+      "eloRating": 1503.0107533723394,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "STL",
+      "eloRating": 1497.5129088609983,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "TBD",
+      "eloRating": 1499.147724,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "TBR",
+      "eloRating": 1495.3885775839315,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "TEX",
+      "eloRating": 1499.9886428692853,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "TOR",
+      "eloRating": 1523.8348880589353,
+      "asOfDate": "2026-03-01"
+    },
+    {
+      "team": "WSN",
+      "eloRating": 1468.99643366351,
+      "asOfDate": "2026-03-01"
+    }
+  ]
+}
