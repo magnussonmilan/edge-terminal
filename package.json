@@ -15,6 +15,7 @@
     "ingest:odds": "tsx scripts/ingest-odds.ts",
     "calibrate": "tsx scripts/calibrate-model.ts",
     "calibrate:v3": "tsx scripts/calibrate-v3-model.ts",
+    "diagnose:v3": "tsx scripts/diagnose-v3.ts",
     "test": "vitest run"
   },
   "dependencies": {

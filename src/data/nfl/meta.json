@@ -1,6 +1,13 @@
 {
   "source": "nflverse",
   "seasons": [
+    2009,
+    2010,
+    2011,
+    2012,
+    2013,
+    2014,
+    2015,
     2016,
     2017,
     2018,
@@ -11,17 +18,17 @@
     2023,
     2024
   ],
-  "generatedAt": "2026-07-10T21:43:11.576Z",
+  "generatedAt": "2026-07-11T00:16:03.720Z",
   "notes": [
     "Joint ridge player-value calibration with rolling-origin CV.",
     "spread_line coverage verified 100% for included seasons.",
     "Cross-fold mean±std is the primary validation metric — not a single holdout year."
   ],
-  "gameCount": 2367,
-  "predictionCount": 2367,
-  "playableGames": 1442,
-  "injuryReportCount": 47881,
-  "playerValueCount": 17386,
-  "crossFoldMeanWinRate": 0.482704980340804,
-  "crossFoldStdWinRate": 0.026120427580270552
+  "gameCount": 4159,
+  "predictionCount": 4159,
+  "playableGames": 2480,
+  "injuryReportCount": 81652,
+  "playerValueCount": 29711,
+  "crossFoldMeanWinRate": 0.49472492247005584,
+  "crossFoldStdWinRate": 0.0317370056949056
 }

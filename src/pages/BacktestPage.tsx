@@ -12,11 +12,18 @@ import {
   YAxis,
 } from 'recharts'
 import { Link } from 'react-router-dom'
-import { ALL_PREDICTIONS, CALIBRATED_V3, listSeasons } from '@/lib/nflData'
+import {
+  ALL_PREDICTIONS,
+  CALIBRATED_V3,
+  PREDICTIONS_V3_INDEPENDENT,
+  PREDICTIONS_V3_MARKET,
+  listSeasons,
+} from '@/lib/nflData'
 import {
   BREAKEVEN_WIN_RATE,
   computeBacktest,
   computeStarSignalDiagnostics,
+  computeStraightUpAccuracy,
   formatWinRateWithCI,
   type StarLevelResultWithCI,
 } from '@/lib/backtest'
@@ -24,6 +31,7 @@ import { DEFAULT_SPLIT, scoreSeasons } from '@/lib/calibration'
 import { cn } from '@/lib/utils'
 import calibrationLog from '@/data/nfl/calibration-log.json'
 import calibratedCoeffs from '@/data/nfl/calibrated-coeffs.json'
+import v3Diagnostics from '@/data/nfl/v3-diagnostics.json'
 
 type FoldLog = {
   trainSeasons: number[]
@@ -170,6 +178,23 @@ export function BacktestPage() {
   const v3TrainLabel = `${v3Split.trainSeasons[0]}–${v3Split.trainSeasons[v3Split.trainSeasons.length - 1]}`
   const v3ValLabel = v3Split.validationSeasons.join(', ')
 
+  const diagReady =
+    (v3Diagnostics as { generatedAt?: string }).generatedAt !== 'pending'
+
+  const suScope = useMemo(() => resolveSeasons(season), [season])
+  const suV2 = useMemo(
+    () => computeStraightUpAccuracy(ALL_PREDICTIONS, suScope),
+    [suScope],
+  )
+  const suV3Ind = useMemo(
+    () => computeStraightUpAccuracy(PREDICTIONS_V3_INDEPENDENT, suScope),
+    [suScope],
+  )
+  const suV3Blend = useMemo(
+    () => computeStraightUpAccuracy(PREDICTIONS_V3_MARKET, suScope),
+    [suScope],
+  )
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-6">
       <header className="mb-6">
@@ -256,6 +281,83 @@ export function BacktestPage() {
           </>
         )}
       </section>
+
+      <section className="mb-8 rounded-lg border border-slate-200 bg-slate-50 p-5">
+        <h2 className="text-sm font-semibold text-slate-900">
+          Straight-up accuracy (not ATS)
+        </h2>
+        <p className="mt-1 text-xs text-slate-600">
+          Did the model favor the side that won the game? This is a different,
+          easier bar than ATS — favorites win more often than not. Do not
+          compare this percentage to ATS win rate (or to nfelo&apos;s 53.70% ATS
+          vs 66.61% Accuracy figures interchangeably).
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <SuCard
+            label="v2"
+            accuracy={suV2.accuracy}
+            n={suV2.totalGames}
+          />
+          <SuCard
+            label="v3 independent"
+            accuracy={suV3Ind.accuracy}
+            n={suV3Ind.totalGames}
+          />
+          <SuCard
+            label="v3 market-blended"
+            accuracy={suV3Blend.accuracy}
+            n={suV3Blend.totalGames}
+          />
+        </div>
+        <p className="mt-3 text-xs text-slate-500">
+          Scope matches the season chips above (view filter). Model push
+          (spread exactly 0) excluded from the denominator.
+        </p>
+      </section>
+
+      {diagReady && (
+        <section className="mb-8 rounded-lg border border-rose-200 bg-rose-50/40 p-5">
+          <h2 className="text-sm font-semibold text-slate-900">
+            v3 regression diagnostics
+          </h2>
+          <p className="mt-2 text-sm text-slate-800">
+            {(v3Diagnostics as { overall?: string }).overall}
+          </p>
+          <ul className="mt-3 list-disc space-y-2 pl-5 text-xs text-slate-700">
+            <li>
+              {(v3Diagnostics as { marketBlend?: { conclusion?: string } })
+                .marketBlend?.conclusion}
+            </li>
+            <li>
+              {
+                (
+                  v3Diagnostics as {
+                    brier?: { overconfidence?: string }
+                  }
+                ).brier?.overconfidence
+              }
+            </li>
+            <li>
+              {
+                (
+                  v3Diagnostics as {
+                    qbVolatility?: { note?: string }
+                  }
+                ).qbVolatility?.note
+              }
+            </li>
+            <li>
+              {
+                (
+                  v3Diagnostics as {
+                    wepa?: { productionNote?: string }
+                  }
+                ).wepa?.productionNote
+              }
+            </li>
+          </ul>
+        </section>
+      )}
 
       {CROSS && (
         <div className="mb-6 rounded-lg border border-slate-200 bg-white p-4">
@@ -707,6 +809,28 @@ function buildDiagnosticClosing(
   )
 
   return parts.join(' ')
+}
+
+function SuCard({
+  label,
+  accuracy,
+  n,
+}: {
+  label: string
+  accuracy: number
+  n: number
+}) {
+  return (
+    <div className="rounded-md border border-slate-200 bg-white p-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 tabular-nums text-xl font-semibold text-slate-900">
+        {(accuracy * 100).toFixed(1)}%
+      </p>
+      <p className="mt-0.5 text-xs text-slate-500">n={n} decided games</p>
+    </div>
+  )
 }
 
 function CompareRow({

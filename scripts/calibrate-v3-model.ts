@@ -2,9 +2,8 @@
  * Calibrate + backtest v3 (QB-Elo + weighted EPA) vs v2 fixtures.
  *
  * Split (as requested): train through 2022, validate 2023–2024.
- * Data note: existing fixtures begin 2016 (full spread_line coverage). We use
- * 2016–2022 train / 2023–2024 validation — the requested 2009 start is blocked
- * on the same spread coverage constraint as v2, not fabricated.
+ * Data note: seasons 2009–2024 (injury reports from 2009; spread_line clean
+ * from ~2005). Train 2009–2022 / validate 2023–2024.
  *
  * WEPA: weekly player EPA summed by team as a stand-in when full PBP isn't
  * downloaded; weightPlay() remains the PBP path (unit-tested). QB updates use
@@ -54,9 +53,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const OUT_DIR = path.join(__dirname, '../src/data/nfl')
 const BASE = 'https://github.com/nflverse/nflverse-data/releases/download'
 
-/** Available fixture seasons with complete spread_line (see meta.json). */
-const SEASONS = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
-const TRAIN = [2016, 2017, 2018, 2019, 2020, 2021, 2022]
+/** 2009–2024: matches published nfelo-style window; injuries available from 2009. */
+const SEASONS = [
+  2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021,
+  2022, 2023, 2024,
+]
+const TRAIN = [
+  2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021,
+  2022,
+]
 const VALIDATION = [2023, 2024]
 
 async function fetchText(url: string): Promise<string> {
@@ -303,21 +308,26 @@ function summarize(label: string, preds: GamePrediction[]) {
   const val = scoreSeasons(preds, VALIDATION)
   const all = computeBacktest(preds, 'all')
   console.log(
-    `${label}: train ${pct(train.overallWinRate)} (n=${train.totalPlayableGames}) · val ${pct(val.overallWinRate)} (n=${val.totalPlayableGames}) · all ${pct(all.overallWinRate)}`,
+    `${label}: train ATS ${pct(train.overallWinRate)} (n=${train.totalPlayableGames}) · val ATS ${pct(val.overallWinRate)} (n=${val.totalPlayableGames}) · SU val ${pct(val.straightUp?.accuracy ?? 0)}`,
   )
   return {
     trainWinRate: train.overallWinRate,
     trainGames: train.totalPlayableGames,
     trainBrier: train.brierScore,
     trainRoi: train.roiIfFollowed,
+    trainStraightUpAccuracy: train.straightUp?.accuracy ?? 0,
+    trainStraightUpGames: train.straightUp?.totalGames ?? 0,
     validationWinRate: val.overallWinRate,
     validationGames: val.totalPlayableGames,
     validationBrier: val.brierScore,
     validationRoi: val.roiIfFollowed,
+    validationStraightUpAccuracy: val.straightUp?.accuracy ?? 0,
+    validationStraightUpGames: val.straightUp?.totalGames ?? 0,
     allWinRate: all.overallWinRate,
     allGames: all.totalPlayableGames,
     allBrier: all.brierScore,
     allRoi: all.roiIfFollowed,
+    allStraightUpAccuracy: all.straightUp?.accuracy ?? 0,
     beatsV2Holdout: false as boolean,
   }
 }
@@ -495,7 +505,7 @@ async function main() {
     actualSplit: {
       trainSeasons: TRAIN,
       validationSeasons: VALIDATION,
-      note: 'Fixtures begin 2016 where spread_line coverage is complete (same constraint as v2). 2009–2015 not fabricated.',
+      note: 'Seasons 2009–2024 (injury reports available from 2009; spread_line clean earlier).',
     },
     srsPrior: {
       method: 'prior-season-decay',

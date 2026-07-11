@@ -1,0 +1,86 @@
+{
+  "generatedAt": "2026-07-11T00:16:39.034Z",
+  "marketBlend": {
+    "independentMeanAbsDiff": 6.696356018939378,
+    "blendedMeanAbsDiff": 1.0044534028409038,
+    "independentMedianAbsDiff": 5.664731993451534,
+    "blendedMedianAbsDiff": 0.8497097990177309,
+    "independentPlayableCount": 3486,
+    "blendedPlayableCount": 1216,
+    "blendedGameCount": 4159,
+    "independentGameCount": 4159,
+    "meanAbsDiffRatio": 0.14999999999999958,
+    "hypothesisConfirmed": true,
+    "conclusion": "CONFIRMED: modelWeight≈0.15 shrinks |blended−posted| to ~15% of independent gap. Star playability (key-number differential) then selects a thin tail — not a valid apples-to-apples comparison to v2/v3-independent without a different playability criterion."
+  },
+  "brier": {
+    "spreadToWinProb": {
+      "zero": 0.5,
+      "plus3": 0.6,
+      "minus3": 0.4,
+      "plus7": 0.7203272095601196,
+      "note": "Same mapping as v2 (k so +3 → ~0.60). Hand check: +3 should be ~0.60."
+    },
+    "sameMappingAsV2": true,
+    "parts": {
+      "v2": {
+        "label": "v2",
+        "n": 2480,
+        "brier": 0.2249179147285675,
+        "meanConf": 0.15785935121237624,
+        "meanAbsSpread": 5.221431451612907
+      },
+      "v3Independent": {
+        "label": "v3-independent",
+        "n": 3486,
+        "brier": 0.24569070146164834,
+        "meanConf": 0.2642067924274397,
+        "meanAbsSpread": 10.42696657638812
+      },
+      "v3ClippedPm7": {
+        "label": "v3-independent clipped ±7",
+        "n": 3486,
+        "brier": 0.23035025348036928,
+        "meanConf": 0.18076457958485675,
+        "meanAbsSpread": 5.6942776086306015
+      }
+    },
+    "overconfidence": "v3 playable |modelSpread| mean 10.43 vs v2 5.22 — same logistic maps larger spreads to more extreme probs, inflating Brier when wrong.",
+    "clipExperiment": "Clipping v3 spreads to ±7 improves Brier 0.2457 → 0.2304 (diagnostic only, not a fix)."
+  },
+  "qbVolatility": {
+    "teamWowV2": {
+      "n": 8684,
+      "std": 1.2811820122695377,
+      "meanAbs": 0.9445658682634761,
+      "p95": 2.6500000000000004
+    },
+    "teamWowV3": {
+      "n": 8684,
+      "std": 1.1931852702756995,
+      "meanAbs": 0.8912323236856394,
+      "p95": 2.4534205272518896
+    },
+    "qbWowEloPerWeekApprox": {
+      "n": 148,
+      "std": 6.619370534443382,
+      "meanAbs": 5.50580344999006,
+      "p95": 13.261331985536067
+    },
+    "qbWowPointsPerWeekApprox": {
+      "n": 148,
+      "std": 0.2647748213777353,
+      "meanAbs": 0.2202321379996025,
+      "p95": 0.5304532794214427
+    },
+    "sampleCaveat": "qb-ratings-v3-sample.json only stores week 1 & 10 snapshots — per-week rates are interpolated across that gap.",
+    "note": "QB point deltas are not dramatically larger than team wow on this sample."
+  },
+  "wepa": {
+    "productionNote": "calibrate-v3 currently feeds weekly player EPA sums into team updates — play-level weightPlay() is unit-tested but not on the live rating path.",
+    "syntheticVarRaw": 0.32712717969603994,
+    "syntheticVarWeighted": 0.2882471910626422,
+    "varianceRatioWeightedOverRaw": 0.8811471774692513
+  },
+  "overall": "Primary Brier driver: overconfident |modelSpread| under the shared spread→P map (not a new conversion). Market-blend instability: differential shrinkage under star filter. WEPA weightPlay not on production path — cannot explain current Brier. Architecture needs more than coefficient retuning before claiming v3 > v2."
+}

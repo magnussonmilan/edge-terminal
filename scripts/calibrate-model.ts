@@ -45,8 +45,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const OUT_DIR = path.join(__dirname, '../src/data/nfl')
 const BASE = 'https://github.com/nflverse/nflverse-data/releases/download'
 
-/** Expanded range: spread_line fully populated; stats/injuries/snaps available. */
-const SEASONS = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+/** Expanded range: spread_line clean from ~2005; injuries from 2009. */
+const SEASONS = [
+  2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021,
+  2022, 2023, 2024,
+]
 
 async function fetchText(url: string): Promise<string> {
   const res = await fetch(url)
@@ -117,14 +120,25 @@ async function loadParsedSeasonRows(): Promise<ParsedSeasonRows> {
     stats[season] = parseCsv(
       await fetchText(`${BASE}/player_stats/player_stats_season_${season}.csv`),
     )
-    def[season] = parseCsv(
-      await fetchText(
-        `${BASE}/player_stats/player_stats_def_season_${season}.csv`,
-      ),
-    )
-    snaps[season] = parseCsv(
-      await fetchText(`${BASE}/snap_counts/snap_counts_${season}.csv`),
-    )
+    try {
+      def[season] = parseCsv(
+        await fetchText(
+          `${BASE}/player_stats/player_stats_def_season_${season}.csv`,
+        ),
+      )
+    } catch (e) {
+      console.warn(`  def stats ${season} skipped:`, e)
+      def[season] = []
+    }
+    // snap_counts start 2012 — empty OL values for earlier seasons
+    try {
+      snaps[season] = parseCsv(
+        await fetchText(`${BASE}/snap_counts/snap_counts_${season}.csv`),
+      )
+    } catch (e) {
+      console.warn(`  snap counts ${season} skipped:`, e)
+      snaps[season] = []
+    }
   }
   return { stats, def, snaps }
 }

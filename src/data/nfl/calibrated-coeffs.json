@@ -2,6 +2,13 @@
   "methodology": "joint-ridge + rolling-origin CV",
   "ridgeLambda": 10,
   "seasons": [
+    2009,
+    2010,
+    2011,
+    2012,
+    2013,
+    2014,
+    2015,
     2016,
     2017,
     2018,
@@ -14,6 +21,13 @@
   ],
   "split": {
     "trainSeasons": [
+      2009,
+      2010,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
       2016,
       2017,
       2018,
@@ -27,12 +41,12 @@
       2024
     ]
   },
-  "hfa": 1.75,
+  "hfa": 2,
   "playerCoeffs": {
     "qbYpaMult": 0.05,
     "qbIntMult": 5,
     "qbEpaMult": 4,
-    "wrPprMult": 0.07749645561858069,
+    "wrPprMult": 0.030767441668663898,
     "wrShareMult": 0.5,
     "rbYpgDiv": 80,
     "rbTdMult": 1.2
@@ -41,38 +55,81 @@
   "folds": [
     {
       "trainSeasons": [
-        2016
+        2009
       ],
-      "valSeason": 2017,
-      "winRate": 0.4713375796178344,
-      "brierScore": 0.22932021351629975,
-      "sampleSize": 157,
-      "hfa": 2.5,
+      "valSeason": 2010,
+      "winRate": 0.45454545454545453,
+      "brierScore": 0.22701372689517713,
+      "sampleSize": 132,
+      "hfa": 2.25,
       "playerCoeffs": {
-        "qbYpaMult": 0.5097386448773461,
+        "qbYpaMult": 1.2,
         "qbIntMult": 5,
-        "qbEpaMult": 4,
-        "wrPprMult": 0.1173508193745377,
+        "qbEpaMult": 2.381586966723268,
+        "wrPprMult": 0.06085940943015576,
         "wrShareMult": 0.5,
-        "rbYpgDiv": 20,
+        "rbYpgDiv": 51.01528313478486,
         "rbTdMult": 1.2
       }
     },
     {
       "trainSeasons": [
-        2016,
-        2017
+        2009,
+        2010
       ],
-      "valSeason": 2018,
-      "winRate": 0.49079754601226994,
-      "brierScore": 0.22446100171065372,
-      "sampleSize": 163,
-      "hfa": 2.5,
+      "valSeason": 2011,
+      "winRate": 0.5424836601307189,
+      "brierScore": 0.20650858147547768,
+      "sampleSize": 153,
+      "hfa": 2,
       "playerCoeffs": {
-        "qbYpaMult": 0.45299306054623223,
+        "qbYpaMult": 1.2,
         "qbIntMult": 5,
         "qbEpaMult": 4,
-        "wrPprMult": 0.09699172362159676,
+        "wrPprMult": 0.028959043739962144,
+        "wrShareMult": 0.5,
+        "rbYpgDiv": 77.87446933242069,
+        "rbTdMult": 1.2
+      }
+    },
+    {
+      "trainSeasons": [
+        2009,
+        2010,
+        2011
+      ],
+      "valSeason": 2012,
+      "winRate": 0.44029850746268656,
+      "brierScore": 0.21811088617990962,
+      "sampleSize": 134,
+      "hfa": 2.5,
+      "playerCoeffs": {
+        "qbYpaMult": 1.2,
+        "qbIntMult": 5,
+        "qbEpaMult": 4,
+        "wrPprMult": 0.03326906165897876,
+        "wrShareMult": 0.5,
+        "rbYpgDiv": 80,
+        "rbTdMult": 1.1465007759122734
+      }
+    },
+    {
+      "trainSeasons": [
+        2009,
+        2010,
+        2011,
+        2012
+      ],
+      "valSeason": 2013,
+      "winRate": 0.5289855072463768,
+      "brierScore": 0.20726577277189773,
+      "sampleSize": 138,
+      "hfa": 2.5,
+      "playerCoeffs": {
+        "qbYpaMult": 1.2,
+        "qbIntMult": 5,
+        "qbEpaMult": 4,
+        "wrPprMult": 0.02805458535375854,
         "wrShareMult": 0.5,
         "rbYpgDiv": 80,
         "rbTdMult": 1.2
@@ -80,20 +137,152 @@
     },
     {
       "trainSeasons": [
+        2009,
+        2010,
+        2011,
+        2012,
+        2013
+      ],
+      "valSeason": 2014,
+      "winRate": 0.5304878048780488,
+      "brierScore": 0.20315240207933621,
+      "sampleSize": 164,
+      "hfa": 2.5,
+      "playerCoeffs": {
+        "qbYpaMult": 1.2,
+        "qbIntMult": 5,
+        "qbEpaMult": 4,
+        "wrPprMult": 0.02,
+        "wrShareMult": 0.5,
+        "rbYpgDiv": 80,
+        "rbTdMult": 1.2
+      }
+    },
+    {
+      "trainSeasons": [
+        2009,
+        2010,
+        2011,
+        2012,
+        2013,
+        2014
+      ],
+      "valSeason": 2015,
+      "winRate": 0.49324324324324326,
+      "brierScore": 0.22622047080807067,
+      "sampleSize": 148,
+      "hfa": 2.5,
+      "playerCoeffs": {
+        "qbYpaMult": 1.2,
+        "qbIntMult": 5,
+        "qbEpaMult": 4,
+        "wrPprMult": 0.02,
+        "wrShareMult": 0.5,
+        "rbYpgDiv": 80,
+        "rbTdMult": 1.2
+      }
+    },
+    {
+      "trainSeasons": [
+        2009,
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015
+      ],
+      "valSeason": 2016,
+      "winRate": 0.4961832061068702,
+      "brierScore": 0.21897358594663405,
+      "sampleSize": 131,
+      "hfa": 2.5,
+      "playerCoeffs": {
+        "qbYpaMult": 1.2,
+        "qbIntMult": 5,
+        "qbEpaMult": 4,
+        "wrPprMult": 0.02,
+        "wrShareMult": 0.5,
+        "rbYpgDiv": 80,
+        "rbTdMult": 1.2
+      }
+    },
+    {
+      "trainSeasons": [
+        2009,
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016
+      ],
+      "valSeason": 2017,
+      "winRate": 0.47770700636942676,
+      "brierScore": 0.22718727311774164,
+      "sampleSize": 157,
+      "hfa": 2.5,
+      "playerCoeffs": {
+        "qbYpaMult": 1.0335269138022172,
+        "qbIntMult": 5,
+        "qbEpaMult": 4,
+        "wrPprMult": 0.02,
+        "wrShareMult": 0.5,
+        "rbYpgDiv": 80,
+        "rbTdMult": 1.2
+      }
+    },
+    {
+      "trainSeasons": [
+        2009,
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
+        2016,
+        2017
+      ],
+      "valSeason": 2018,
+      "winRate": 0.4968944099378882,
+      "brierScore": 0.22400628277043325,
+      "sampleSize": 161,
+      "hfa": 2.5,
+      "playerCoeffs": {
+        "qbYpaMult": 0.6983959650959655,
+        "qbIntMult": 5,
+        "qbEpaMult": 4,
+        "wrPprMult": 0.02,
+        "wrShareMult": 0.5,
+        "rbYpgDiv": 80,
+        "rbTdMult": 1.2
+      }
+    },
+    {
+      "trainSeasons": [
+        2009,
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
         2016,
         2017,
         2018
       ],
       "valSeason": 2019,
-      "winRate": 0.45714285714285713,
-      "brierScore": 0.22624631537855722,
+      "winRate": 0.45,
+      "brierScore": 0.22884007760845929,
       "sampleSize": 140,
       "hfa": 2.5,
       "playerCoeffs": {
-        "qbYpaMult": 0.5340508498755252,
+        "qbYpaMult": 0.5675897011412555,
         "qbIntMult": 5,
         "qbEpaMult": 4,
-        "wrPprMult": 0.07240112985279919,
+        "wrPprMult": 0.02,
         "wrShareMult": 0.5,
         "rbYpgDiv": 80,
         "rbTdMult": 1.2
@@ -101,21 +290,28 @@
     },
     {
       "trainSeasons": [
+        2009,
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
         2016,
         2017,
         2018,
         2019
       ],
       "valSeason": 2020,
-      "winRate": 0.5159235668789809,
-      "brierScore": 0.2224863593689734,
-      "sampleSize": 157,
-      "hfa": 1.75,
+      "winRate": 0.5144508670520231,
+      "brierScore": 0.2276226943435656,
+      "sampleSize": 173,
+      "hfa": 2.25,
       "playerCoeffs": {
-        "qbYpaMult": 0.05,
+        "qbYpaMult": 0.1574356635735366,
         "qbIntMult": 5,
         "qbEpaMult": 4,
-        "wrPprMult": 0.07925370474910873,
+        "wrPprMult": 0.02,
         "wrShareMult": 0.5,
         "rbYpgDiv": 80,
         "rbTdMult": 1.2
@@ -123,6 +319,13 @@
     },
     {
       "trainSeasons": [
+        2009,
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
         2016,
         2017,
         2018,
@@ -130,22 +333,29 @@
         2020
       ],
       "valSeason": 2021,
-      "winRate": 0.4606741573033708,
-      "brierScore": 0.24020744346469375,
-      "sampleSize": 178,
-      "hfa": 1.5,
+      "winRate": 0.4777777777777778,
+      "brierScore": 0.24994781323133533,
+      "sampleSize": 180,
+      "hfa": 2,
       "playerCoeffs": {
         "qbYpaMult": 0.05,
         "qbIntMult": 5,
         "qbEpaMult": 4,
-        "wrPprMult": 0.08843844873856584,
+        "wrPprMult": 0.02,
         "wrShareMult": 0.5,
-        "rbYpgDiv": 75.44623605359027,
+        "rbYpgDiv": 80,
         "rbTdMult": 1.2
       }
     },
     {
       "trainSeasons": [
+        2009,
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
         2016,
         2017,
         2018,
@@ -154,15 +364,15 @@
         2021
       ],
       "valSeason": 2022,
-      "winRate": 0.47878787878787876,
-      "brierScore": 0.2287817987088275,
-      "sampleSize": 165,
-      "hfa": 1.5,
+      "winRate": 0.5174418604651163,
+      "brierScore": 0.221936441977468,
+      "sampleSize": 172,
+      "hfa": 2,
       "playerCoeffs": {
         "qbYpaMult": 0.05,
         "qbIntMult": 5,
         "qbEpaMult": 4,
-        "wrPprMult": 0.09038030170677225,
+        "wrPprMult": 0.024327944075084266,
         "wrShareMult": 0.5,
         "rbYpgDiv": 80,
         "rbTdMult": 1.2
@@ -170,6 +380,13 @@
     },
     {
       "trainSeasons": [
+        2009,
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
         2016,
         2017,
         2018,
@@ -179,15 +396,15 @@
         2022
       ],
       "valSeason": 2023,
-      "winRate": 0.45625,
-      "brierScore": 0.24276476019308654,
-      "sampleSize": 160,
-      "hfa": 1.5,
+      "winRate": 0.4666666666666667,
+      "brierScore": 0.2355364503082213,
+      "sampleSize": 165,
+      "hfa": 2,
       "playerCoeffs": {
         "qbYpaMult": 0.05,
         "qbIntMult": 5,
         "qbEpaMult": 4,
-        "wrPprMult": 0.08282383842507407,
+        "wrPprMult": 0.02722438590554354,
         "wrShareMult": 0.5,
         "rbYpgDiv": 80,
         "rbTdMult": 1.2
@@ -195,6 +412,13 @@
     },
     {
       "trainSeasons": [
+        2009,
+        2010,
+        2011,
+        2012,
+        2013,
+        2014,
+        2015,
         2016,
         2017,
         2018,
@@ -205,15 +429,15 @@
         2023
       ],
       "valSeason": 2024,
-      "winRate": 0.5307262569832403,
-      "brierScore": 0.21593997805660403,
-      "sampleSize": 179,
-      "hfa": 1.75,
+      "winRate": 0.5337078651685393,
+      "brierScore": 0.21123746335263988,
+      "sampleSize": 178,
+      "hfa": 2,
       "playerCoeffs": {
         "qbYpaMult": 0.05,
         "qbIntMult": 5,
         "qbEpaMult": 4,
-        "wrPprMult": 0.08385370706768053,
+        "wrPprMult": 0.030582842241315362,
         "wrShareMult": 0.5,
         "rbYpgDiv": 80,
         "rbTdMult": 1.2
@@ -221,21 +445,21 @@
     }
   ],
   "crossFold": {
-    "meanWinRate": 0.482704980340804,
-    "stdWinRate": 0.026120427580270552,
-    "meanBrier": 0.22877598379971198,
-    "totalValGames": 1299,
+    "meanWinRate": 0.49472492247005584,
+    "stdWinRate": 0.0317370056949056,
+    "meanBrier": 0.2222373281910911,
+    "totalValGames": 2326,
     "clearsBreakevenAtMeanMinusOneStd": false,
-    "meanMinusOneStd": 0.45658455276053345,
+    "meanMinusOneStd": 0.4629879167751502,
     "breakeven": 0.524
   },
   "final": {
-    "allWinRate": 0.4840499306518724,
-    "brierScore": 0.2284750919697679,
-    "roiIfFollowed": -0.07590467784642545,
-    "totalPlayableGames": 1442,
-    "trainWinRate": 0.47743467933491684,
-    "validationWinRate": 0.5307262569832403
+    "allWinRate": 0.49274193548387096,
+    "brierScore": 0.22491819409098085,
+    "roiIfFollowed": -0.059310850439882754,
+    "totalPlayableGames": 2480,
+    "trainWinRate": 0.4895742832319722,
+    "validationWinRate": 0.5337078651685393
   },
-  "generatedAt": "2026-07-10T21:43:11.555Z"
+  "generatedAt": "2026-07-11T00:16:03.674Z"
 }

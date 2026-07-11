@@ -51,6 +51,10 @@ type ModelSummary = {
   allWinRate: number
   allGames: number
   beatsV2Holdout?: boolean
+  trainStraightUpAccuracy?: number
+  validationStraightUpAccuracy?: number
+  validationBrier?: number
+  trainBrier?: number
 }
 
 export const CALIBRATED_V3 = calibratedV3 as V3CalibrationReport

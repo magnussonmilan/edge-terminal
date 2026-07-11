@@ -25,6 +25,8 @@ export interface BacktestSummary {
   overallWinRate: number
   brierScore: number
   roiIfFollowed: number
+  /** Straight-up winner accuracy — separate from ATS; not comparable to ATS %. */
+  straightUp?: AccuracySummary
 }
 
 export const STAR_LEVELS = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0] as const
@@ -175,6 +177,8 @@ export function computeBacktest(
   const profit = wins * (100 / 110) + (n - wins) * -1
   const roiIfFollowed = n > 0 ? profit / n : 0
 
+  const straightUp = computeStraightUpAccuracy(predictions, season)
+
   return {
     season,
     totalPlayableGames: n,
@@ -182,11 +186,62 @@ export function computeBacktest(
     overallWinRate,
     brierScore,
     roiIfFollowed,
+    straightUp,
   }
 }
 
 /** Break-even win rate at standard -110 vig. */
 export const BREAKEVEN_WIN_RATE = 0.524
+
+export interface AccuracySummary {
+  totalGames: number
+  correctPicks: number
+  accuracy: number
+  pushGames: number
+}
+
+/**
+ * Straight-up winner accuracy: did the model favor the side that won?
+ * Excludes modelSpread === 0 (no side favored) from the denominator.
+ * This is a different, easier bar than ATS — favorites win more often than not.
+ * Do not compare this % to ATS win rate.
+ */
+export function computeStraightUpAccuracy(
+  predictions: GamePrediction[],
+  season: number | 'all' | number[] = 'all',
+): AccuracySummary {
+  const seasonSet =
+    season === 'all'
+      ? null
+      : new Set(Array.isArray(season) ? season : [season])
+
+  let correct = 0
+  let decided = 0
+  let pushes = 0
+
+  for (const p of predictions) {
+    if (p.homeScore == null || p.awayScore == null) continue
+    if (seasonSet && !seasonSet.has(p.season)) continue
+    if (p.homeScore === p.awayScore) continue // game tie — skip
+
+    if (Math.abs(p.modelSpread) < 1e-9) {
+      pushes += 1
+      continue
+    }
+
+    const modelHome = p.modelSpread > 0
+    const homeWon = p.homeScore > p.awayScore
+    decided += 1
+    if (modelHome === homeWon) correct += 1
+  }
+
+  return {
+    totalGames: decided,
+    correctPicks: correct,
+    accuracy: decided > 0 ? correct / decided : 0,
+    pushGames: pushes,
+  }
+}
 
 function filterPlayable(
   predictions: GamePrediction[],

@@ -1,6 +1,6 @@
 /**
  * Ingest nflverse schedules + injuries + season player stats for seasons
- * 2022–2024, run power-rating updates with injury differentials, and write
+ * 2009–2024, run power-rating updates with injury differentials, and write
  * compact JSON fixtures under src/data/nfl/ for the client demo.
  *
  * Usage: npx tsx scripts/ingest-nflverse.ts
@@ -33,7 +33,10 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const OUT_DIR = path.join(__dirname, '../src/data/nfl')
-const SEASONS = [2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+const SEASONS = [
+  2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021,
+  2022, 2023, 2024,
+]
 
 const BASE =
   'https://github.com/nflverse/nflverse-data/releases/download'
