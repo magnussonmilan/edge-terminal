@@ -19,6 +19,10 @@ export interface DiscoveredMarket {
    * Polymarket moneyline: omit (both outcomes live on one market).
    */
   yesTeam?: string
+  /** Home club franchise id when known (park / weather keyed off home). */
+  homeTeam?: string
+  /** First-pitch instant ISO when known. */
+  firstPitchIso?: string
   /** Polymarket outcome labels [team A, team B] when known. */
   outcomeLabels?: [string, string]
   /** Polymarket event slug for reliable re-fetch. */

@@ -12,6 +12,7 @@ import {
 } from '@/lib/mlbPairDiscovery'
 import { setSessionAutoApprovedMlbPairs } from '@/lib/mlbDiscoveredPairsStore'
 import type { RulesFlag } from '@/lib/rulesDiffChecker'
+import { SituationalContextPanel } from '@/components/mlb/SituationalContextPanel'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -150,7 +151,20 @@ function QueueSection({
         <p className="mt-2 text-sm text-slate-500">{empty}</p>
       ) : (
         <ul className="mt-3 space-y-4">
-          {items.map((item) => (
+          {[...items]
+            // Neutral order by first pitch — never by situational "risk"
+            .sort((a, b) => {
+              const ta =
+                a.pair.polymarket.firstPitchIso ??
+                a.pair.kalshi.firstPitchIso ??
+                ''
+              const tb =
+                b.pair.polymarket.firstPitchIso ??
+                b.pair.kalshi.firstPitchIso ??
+                ''
+              return ta.localeCompare(tb)
+            })
+            .map((item) => (
             <ReviewCard
               key={`${item.proposed.kalshiMarketId}-${item.proposed.polymarketMarketId}`}
               item={item}
@@ -233,6 +247,11 @@ function ReviewCard({
         </ul>
       )}
 
+      {/* Separated from rules flags — informational only, never approval input */}
+      {variant === 'review' && flags.length > 0 && (
+        <SituationalContextPanel item={item} />
+      )}
+
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         <RulesBlock venue="Kalshi" text={pair.kalshi.resolutionRules} />
         <RulesBlock
@@ -255,7 +274,7 @@ function FlagRow({ flag }: { flag: RulesFlag }) {
       )}
     >
       <span className="font-semibold uppercase tracking-wide">
-        {flag.severity}
+        Rules flag · {flag.severity}
       </span>
       <span className="mx-1.5 text-slate-400">·</span>
       <span className="font-medium">{flag.category}</span>

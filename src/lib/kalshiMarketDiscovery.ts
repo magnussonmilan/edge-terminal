@@ -109,6 +109,17 @@ export function parseKalshiMlbGameMarket(
     m.early_close_condition,
   ].filter((s): s is string => !!s && s.trim().length > 0)
 
+  const firstPitchIso = m.occurrence_datetime
+    ? new Date(m.occurrence_datetime).toISOString()
+    : undefined
+
+  // Kalshi titles are typically "Away vs Home Winner?"
+  let homeTeam: string | undefined
+  const vs = title.match(/^(.+?)\s+vs\.?\s+(.+?)(?:\s+Winner)?\??$/i)
+  if (vs) {
+    homeTeam = resolveMlbVenueTeam(vs[2]!) ?? undefined
+  }
+
   return {
     venue: 'kalshi',
     marketId: ticker,
@@ -119,6 +130,8 @@ export function parseKalshiMlbGameMarket(
     resolutionSource:
       'Kalshi rules_primary / rules_secondary (exchange determination)',
     yesTeam,
+    homeTeam,
+    firstPitchIso,
     rawTitle: title,
   }
 }

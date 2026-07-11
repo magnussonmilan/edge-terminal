@@ -78,6 +78,29 @@ function dateFromEvent(e: GammaEvent, m: GammaMarket): string | null {
   return fromStart?.[1] ?? null
 }
 
+function homeTeamFromEvent(e: GammaEvent): string | null {
+  const teams = e.teams ?? []
+  for (const t of teams) {
+    if ((t.ordering || '').toLowerCase() !== 'home') continue
+    return (
+      resolveMlbVenueTeam(t.abbreviation || '') ??
+      resolveMlbVenueTeam(t.name || '')
+    )
+  }
+  // Slug mlb-away-home-date → second code is home on Polymarket MLB series
+  const slug = e.slug || ''
+  const m = slug.match(/^mlb-([a-z0-9]+)-([a-z0-9]+)-\d{4}-\d{2}-\d{2}$/i)
+  if (m) return resolveMlbVenueTeam(m[2]!)
+  return null
+}
+
+function firstPitchIsoFromEvent(e: GammaEvent, m: GammaMarket): string | null {
+  const raw = e.startTime || m.gameStartTime
+  if (!raw) return null
+  const t = Date.parse(raw)
+  return Number.isFinite(t) ? new Date(t).toISOString() : null
+}
+
 function teamsFromEvent(e: GammaEvent): [string, string] | null {
   const teams = e.teams ?? []
   if (teams.length >= 2) {
@@ -140,6 +163,9 @@ export async function discoverPolymarketMlbMarkets(): Promise<
         const rules = (m.description || ev.description || '').trim()
         if (!rules) continue
 
+        const homeTeam = homeTeamFromEvent(ev) ?? undefined
+        const firstPitchIso = firstPitchIsoFromEvent(ev, m) ?? undefined
+
         out.push({
           venue: 'polymarket',
           marketId: m.conditionId,
@@ -150,6 +176,8 @@ export async function discoverPolymarketMlbMarkets(): Promise<
           resolutionSource:
             (m.resolutionSource || ev.resolutionSource || '').trim() ||
             'Polymarket market description (UMA / resolvedBy)',
+          homeTeam,
+          firstPitchIso,
           outcomeLabels:
             outcomes.length >= 2
               ? [outcomes[0]!, outcomes[1]!]
